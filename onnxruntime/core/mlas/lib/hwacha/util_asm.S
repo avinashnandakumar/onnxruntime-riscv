@@ -22,13 +22,23 @@ vtest2:
     vsb vv0, va0
     vstop
 
+#     .globl vtest3
+# vtest3:
+#     vpset vp0
+#     vlb vv0, va1 #input
+#     vlb vv1, va2 #filter
+#     vlb vv2, va0 #output
+#     vsb vv0, va0
+#     vstop
     .globl vtest3
 vtest3:
     vpset vp0
-    vlb vv0, va1 #input
-    vlb vv1, va2 #filter
-    vlb vv2, va0 #output
-    vsb vv0, va0
+    vlb vv1, va1 #input
+    vlb vv2, va2 #filter
+    vlh vv3, va0 #temp_output
+    vmul vv1, vv1, vv2
+    vadd vv1, vv1, vv3
+    vsh vv1, va0
     vstop
 
     .globl vtest4
@@ -46,8 +56,21 @@ vtest4:
 vtest5:
     vpset vp0
     vlh vv0, va0 #temp_output
-    vdiv vv0, vv0, vs1
+    vfcvt.l.h vv0, vv0
+    vfcvt.s.l vv0, vv0
+    vfmul.s vv0, vv0, vs1
     vsb vv0, va1
+    vstop
+
+    .globl vtest6
+vtest6:
+    vpset vp0
+    vlh vv0, va0 #temp_output
+    vfcvt.s.w vv0, vv0
+    vfmul.s vv0, vv0, vs1
+    vfcvt.w.s vv0, vv0
+    #vsb vv0, va2 #store to debug
+    vsb vv0, va1 #store to output
     vstop
 
     .globl accumulate_channels
