@@ -58,7 +58,7 @@ void HwachaDepthWiseConv(const size_t batch_size,
       }
       asm volatile("vmca va0, %0" : : "r" (temp_output));  //temp_output
     
-      input_idy = output_idy - pad_left_height;
+      input_idy = output_idy*stride_height - pad_left_height;
       for (int filter_idy = 0; filter_idy < kernel_height; filter_idy++) {
         if (output_idy == 0 && filter_idy == 0 && pad_left_height == 1) {
           printf("pad top buffer zero. output_y: %i output_x: %i filter_y: %i \n",
@@ -72,7 +72,7 @@ void HwachaDepthWiseConv(const size_t batch_size,
           continue;
         }
 
-        input_idx = output_idx - pad_left_width * channels;
+        input_idx = output_idx*stride_width - pad_left_width*channels;
         for (int filter_idx = 0; filter_idx < kernel_width * channels; filter_idx += channels) {
           if (output_idx == 0 && filter_idx == 0 && pad_left_width == 1) {
             printf("pad left buffer zero. output_y: %i output_x: %i filter_y: %i filter_x: %i \n",
