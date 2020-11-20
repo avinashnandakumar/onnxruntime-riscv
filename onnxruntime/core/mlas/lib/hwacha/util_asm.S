@@ -68,6 +68,8 @@ vtest6:
     vlh vv0, va0 #temp_output
     vfcvt.s.w vv0, vv0
     vfmul.s vv0, vv0, vs1
+    vfmin.s vv0, vv0, vs2
+    vfmax.s vv0, vv0, vs3    
     vfcvt.w.s vv0, vv0
     #vsb vv0, va2 #store to debug
     vsb vv0, va1 #store to output

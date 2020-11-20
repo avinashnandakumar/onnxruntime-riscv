@@ -20,7 +20,7 @@ void HwachaDepthWiseConv(const size_t batch_size,
                          const size_t stride_height, const size_t stride_width,
                          const size_t out_height, const size_t out_width,
                          const int8_t* input, const int8_t* filter, const int32_t* bias,
-                         int8_t* output, const float real_multiplier) {
+                         int8_t* output, const float real_multiplier, FILE *debug_out) {
   
   // printf("Starting Hwacha Depth Wise Convolution!\n");
 
@@ -32,7 +32,7 @@ void HwachaDepthWiseConv(const size_t batch_size,
       temp_output[k] = (int16_t)0;
   }
 
-  int16_t debug_output[out_height * out_width * channels];
+  //int16_t debug_output[out_height * out_width * channels];
   //set zero in hwacha
   //for (size_t m = 0; m < out_height; m++) {
   //  for (size_t k = 0; k < out_width * channels; k++) {
@@ -43,8 +43,10 @@ void HwachaDepthWiseConv(const size_t batch_size,
 
   setvcfg(0, 1, 4, 1);
   int consumed = setvlen(channels);
-  printf("Consumed length: %i\n", consumed);
-  printf("Real Multiplier: %f\n", real_multiplier);
+  fprintf(debug_out, "Consumed length: %i\n", consumed);
+  fprintf(debug_out, "Real Multiplier: %f\n", real_multiplier);
+  const float min = -128.0;
+  const float max = 127.0;
 
   int input_idx = 0;
   int input_idy = 0;
@@ -60,28 +62,30 @@ void HwachaDepthWiseConv(const size_t batch_size,
     
       input_idy = output_idy*stride_height - pad_left_height;
       for (int filter_idy = 0; filter_idy < kernel_height; filter_idy++) {
-        if (output_idy == 0 && filter_idy == 0 && pad_left_height == 1) {
-          printf("pad top buffer zero. output_y: %i output_x: %i filter_y: %i \n",
-                 output_idy, output_idx, filter_idy);
+        if (input_idy < 0) {
+        //if (output_idy == 0 && filter_idy == 0 && pad_left_height == 1) {
+          printf("pad top buffer zero. output_y: %i output_x: %i input_y: %i filter_y: %i \n", output_idy, output_idx/channels, input_idy, filter_idy);
           input_idy += 1;
           continue;
         }
-        else if(output_idy == out_height-1 && filter_idy == kernel_height-1 && pad_right_height == 1){
-          printf("pad bottom buffer zero. output_y: %i output_x: %i filter_y: %i \n", output_idy, output_idx, filter_idy);
-          //input_idy += 1;
+        else if(input_idy >= in_height){
+        // else if(output_idy == out_height-1 && filter_idy == kernel_height-1 && pad_right_height == 1){
+          printf("pad bottom buffer zero. output_y: %i output_x: %i input_y: %i filter_y: %i \n", output_idy, output_idx/channels, input_idy, filter_idy);
+          input_idy += 1;
           continue;
         }
 
         input_idx = output_idx*stride_width - pad_left_width*channels;
         for (int filter_idx = 0; filter_idx < kernel_width * channels; filter_idx += channels) {
-          if (output_idx == 0 && filter_idx == 0 && pad_left_width == 1) {
-            printf("pad left buffer zero. output_y: %i output_x: %i filter_y: %i filter_x: %i \n",
-                   output_idy, output_idx, filter_idy, filter_idx);
+          if (input_idx < 0) {
+          //if (output_idx == 0 && filter_idx == 0 && pad_left_width == 1) {
+            printf("pad left buffer zero. output_y: %i output_x: %i input_y: %i input_x: %i filter_y: %i filter_x: %i \n", output_idy, output_idx/channels, input_idy, input_idx/channels, filter_idy, filter_idx/channels);
             input_idx += channels;
             continue;
           }
-          else if(output_idx == out_width*channels-channels && filter_idx == kernel_width*channels-channels && pad_right_width == 1){
-            printf("pad right buffer zero. output_y: %i output_x: %i filter_y: %i filter_x: %i \n", output_idy, output_idx, filter_idy, filter_idx);
+          else if(input_idx >= in_width * channels){
+          //else if(output_idx == out_width*channels-channels && filter_idx == kernel_width*channels-channels && pad_right_width == 1){
+            printf("pad right buffer zero. output_y: %i output_x: %i input_y: %i input_x: %i filter_y: %i filter_x: %i \n", output_idy, output_idx/channels, input_idy, input_idx/channels, filter_idy, filter_idx/channels);
             input_idx += channels;
             continue;
           }
@@ -104,10 +108,13 @@ void HwachaDepthWiseConv(const size_t batch_size,
       
       asm volatile("vmca va0, %0" : : "r" (temp_output));  //output
       asm volatile("vmca va1, %0" : : "r" (output + output_idx + output_idy * out_width * channels));  //output
-      asm volatile("vmca va2, %0" : : "r" (debug_output + output_idx + output_idy * out_width * channels));  //output
+      //asm volatile("vmca va2, %0" : : "r" (debug_output + output_idx + output_idy * out_width * channels));  //output
       // asm volatile("flw fa0, %0, 0" : : "r" (real_multiplier));
       // asm volatile("fmv.x.s a4, fa0");
+      
       asm volatile("vmcs vs1, %0" : : "r" (real_multiplier));  //real_multiplier
+      asm volatile("vmcs vs2, %0" : : "r" (max));
+      asm volatile("vmcs vs3, %0" : : "r" (min));
       asm volatile("la t0, vtest6" : : : "t0");
       asm volatile("lw t1, 0(t0)");
       asm volatile("vf 0(t0)");
