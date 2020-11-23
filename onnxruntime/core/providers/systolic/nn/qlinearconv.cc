@@ -210,8 +210,8 @@ Status QLinearConv_nhwc::Compute(OpKernelContext* context) const {
   //ofstream debug_out(("debug_verbose/" + file_name).c_str());
 
   FILE *debug_out;
-  debug_out = fopen("debug_verbose_student/all_layers_student.out","a");
-  //debug_out = fopen(("debug_verbose_student/" + file_name).c_str(),"w");
+  //debug_out = fopen("debug_verbose_student/all_layers_student.out","a");
+  debug_out = fopen(("debug_verbose_student/" + file_name).c_str(),"w");
 
   // fstream debug_out; 
   // debug_out.open(("debug_verbose/" + Node().Name()+ "_ref.out").c_str(), ios::out); 
