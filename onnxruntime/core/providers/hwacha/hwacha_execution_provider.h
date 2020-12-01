@@ -14,9 +14,10 @@ constexpr const char* HWACHA = "Hwacha";
 // Information needed to construct Hwacha execution providers.
 struct HwachaExecutionProviderInfo {
   bool create_arena{true};
+  char accelerator_mode{0};
 
-  explicit HwachaExecutionProviderInfo(bool use_arena)
-      : create_arena(use_arena) {}
+  explicit HwachaExecutionProviderInfo(bool use_arena, char accelerator_mode)
+      : create_arena(use_arena), accelerator_mode(accelerator_mode) {}
 
   HwachaExecutionProviderInfo() = default;
 };
@@ -62,6 +63,7 @@ class HwachaExecutionProvider : public IExecutionProvider {
 
   void InsertFusedRules(FuseRuleFn rule);
   void SetupFusedRules();
+  char GetAcceleratorMode() const;
 
  private:
   std::vector<FuseRuleFn> fuse_rules_;

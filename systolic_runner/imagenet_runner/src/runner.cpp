@@ -6,6 +6,9 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#ifdef USE_HWACHA
+#include <hwacha/hwacha_provider_factory.h>
+#endif
 #include <systolic/systolic_provider_factory.h>
 #include <onnxruntime_cxx_api.h>
 #ifdef FOR_FIRESIM
@@ -15,9 +18,7 @@
 #ifdef USE_CUSTOM_OP_LIBRARY
 #include "custom_op_library.h"
 #endif
-#ifdef USE_HWACHA
-#include <hwacha/hwacha_provider_factory.h>
-#endif
+
 
 #include "stb_image.h"
 
@@ -175,12 +176,17 @@ int main(int argc, char* argv[]) {
     session_options.EnableProfiling(cmd["trace"].as<std::string>().c_str());
   }
   
+  
+  #ifdef USE_HWACHA
+  if (cmd["hwacha"].as<int>() && (cmd["optimization"].as<int>() == 99)){
+    printf("Using hwacha; Optimization Level: %i \n", cmd["optimization"].as<int>());
+    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_Hwacha(session_options, /*use_arena=*/ 1, /*accelerator_mode=*/ (char) cmd["hwacha"].as<int>()));
+  }  
+  #endif
+
   printf("Using systolic in mode %d\n", cmd["execution"].as<int>());
   Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_Systolic(session_options, /*use_arena=*/ 1, /*accelerator_mode=*/ (char) cmd["execution"].as<int>()));
-#ifdef USE_HWACHA
-  printf("Using hwacha\n");
-  Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_Hwacha(session_options, /*use_arena=*/ 1));
-#endif
+  
 
   // Sets graph optimization level
   // Available levels are

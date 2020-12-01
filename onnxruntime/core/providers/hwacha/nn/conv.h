@@ -23,5 +23,16 @@ class Conv : public OpKernel {
   ConvAttributes conv_attrs_;
 };
 
+template <StorageOrder T>
+class QLinearConv : public OpKernel {
+ public:
+  explicit QLinearConv(const OpKernelInfo& info) : OpKernel(info), conv_attrs_(info) {
+  }
+
+  Status Compute(OpKernelContext* context) const override;
+  ConvAttributes conv_attrs_;
+  bool fused_relu_ = false;
+};
+
 } // namespace hwacha
 }  // namespace onnxruntime
