@@ -121,7 +121,7 @@ Status QLinearConv<StorageOrder::NHWC>::Compute(OpKernelContext* context) const 
   const int64_t N = X->Shape()[0];
   const int64_t C = X->Shape()[3];
   const int64_t M = W->Shape()[3];
-  ORT_RETURN_IF_ERROR(conv_attrs_.ValidateInputShapeNHWC(X, W));
+  // ORT_RETURN_IF_ERROR(conv_attrs_.ValidateInputShapeNHWC(X, W));
   ORT_ENFORCE(B == nullptr || B->Shape().NumDimensions() == 1, "Bias is not 1D");
   ORT_ENFORCE(B == nullptr || B->Shape().Size() == M, "1D Bias does not match M");
 
@@ -184,8 +184,8 @@ Status QLinearConv<StorageOrder::NHWC>::Compute(OpKernelContext* context) const 
   ch2 = 1; 
   
   
-  string file_name = (Node().Name()+ "_ref.out").c_str();
-  std::replace(file_name.begin(), file_name.end(), '/', '_');
+  // string file_name = (Node().Name()+ "_ref.out").c_str();
+  // std::replace(file_name.begin(), file_name.end(), '/', '_');
   
 
   // FILE *debug_out;
@@ -245,8 +245,7 @@ Status QLinearConv<StorageOrder::NHWC>::Compute(OpKernelContext* context) const 
               Wdata,
               Bdata,
               Ydata,
-              real_multiplier,
-              nullptr); 
+              real_multiplier); 
 
               Nu = 1; 
               He = input_shape[0];

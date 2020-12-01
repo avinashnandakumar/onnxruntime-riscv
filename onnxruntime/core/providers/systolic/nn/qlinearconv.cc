@@ -10,15 +10,12 @@
 #include "core/providers/systolic/systolic_execution_provider.h"
 #include "core/framework/op_kernel_context_internal.h"
 #include "core/common/safeint.h"
-<<<<<<< HEAD
 #include "conv_pool_helper.h"
-=======
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
 using namespace std;
 
->>>>>>> fixed int8 range from -128 to 127
 
 #ifdef SYSTOLIC_INT8
 
@@ -242,138 +239,138 @@ Status QLinearConv_nhwc::Compute(OpKernelContext* context) const {
     if (profiling_enabled) {
       start_time = profiler.StartTime();
     }
-    fprintf(debug_out, "Real Multiplier: %f\n", real_multiplier);
+    //fprintf(debug_out, "Real Multiplier: %f\n", real_multiplier);
     //printf("Real Multiplier: %f\n", real_multiplier);
-    if (conv_attrs_.group > 1 && conv_attrs_.group == C ){
-    //if (C == 2){
-          HwachaDepthWiseConv(0,//batchsize
-              conv_attrs_.group,
-              C,
-              input_shape[0], input_shape[1],
-              0, //filtercount
-              kernel_shape[0], kernel_shape[1],
-              // 1,1,
-              // 1,1,
-              pads[0], pads[1],
-              pads[2], pads[3],
-              dilations[0], dilations[1],
-              strides[0], strides[1],
-              output_shape[0], output_shape[1],
-              Xdata,
-              Wdata,
-              Bdata,
-              Ydata,
-              real_multiplier,
-              debug_out); 
+    // if (conv_attrs_.group > 1 && conv_attrs_.group == C ){
+    // //if (C == 2){
+    //       HwachaDepthWiseConv(0,//batchsize
+    //           conv_attrs_.group,
+    //           C,
+    //           input_shape[0], input_shape[1],
+    //           0, //filtercount
+    //           kernel_shape[0], kernel_shape[1],
+    //           // 1,1,
+    //           // 1,1,
+    //           pads[0], pads[1],
+    //           pads[2], pads[3],
+    //           dilations[0], dilations[1],
+    //           strides[0], strides[1],
+    //           output_shape[0], output_shape[1],
+    //           Xdata,
+    //           Wdata,
+    //           Bdata,
+    //           Ydata,
+    //           real_multiplier,
+    //           debug_out); 
 
-              Nu = 1; 
-              He = input_shape[0];
-              Wi = input_shape[1];
-              Ch = C;
+    //           Nu = 1; 
+    //           He = input_shape[0];
+    //           Wi = input_shape[1];
+    //           Ch = C;
               
-              fprintf(debug_out, "Hwacha Input:\nM: %li \t Group: %li \t Input Image Size: HxW %li x %li \t C: %li \t Kernel Dim: %li \n", M, conv_attrs_.group, input_shape[0], input_shape[1], C, kernel_dim);
-              fprintf(debug_out, "Input Size: %li Confirm: %li Channels: %i \n", input_image_size, input_shape[0] * input_shape[1], Ch);
+    //           fprintf(debug_out, "Hwacha Input:\nM: %li \t Group: %li \t Input Image Size: HxW %li x %li \t C: %li \t Kernel Dim: %li \n", M, conv_attrs_.group, input_shape[0], input_shape[1], C, kernel_dim);
+    //           fprintf(debug_out, "Input Size: %li Confirm: %li Channels: %i \n", input_image_size, input_shape[0] * input_shape[1], Ch);
     
-              for (int n = 0; n < Nu; n++) {
-                for (int h = 0; h < He; h++) {
-                  for (int w = 0; w < Wi; w++) {
-                    for (int c = 0; c < Ch; c++) {
-                      // if(c == ch1 || c == ch2){
-                        fprintf(debug_out, "%i, ", Xdata[((n*He + h)*Wi + w)*Ch + c]); 
-                      // }
-                    }
-                  }
-                  fprintf(debug_out, "\n");
-                }
-                fprintf(debug_out, "\n");
-              }
+    //           for (int n = 0; n < Nu; n++) {
+    //             for (int h = 0; h < He; h++) {
+    //               for (int w = 0; w < Wi; w++) {
+    //                 for (int c = 0; c < Ch; c++) {
+    //                   // if(c == ch1 || c == ch2){
+    //                     fprintf(debug_out, "%i, ", Xdata[((n*He + h)*Wi + w)*Ch + c]); 
+    //                   // }
+    //                 }
+    //               }
+    //               fprintf(debug_out, "\n");
+    //             }
+    //             fprintf(debug_out, "\n");
+    //           }
             
 
-              Nu = 1; 
-              He = kernel_shape[0];
-              Wi = kernel_shape[1];
-              Ch = W->Shape()[2];
-              In = W->Shape()[2];
-              Ou = W->Shape()[3]; 
+    //           Nu = 1; 
+    //           He = kernel_shape[0];
+    //           Wi = kernel_shape[1];
+    //           Ch = W->Shape()[2];
+    //           In = W->Shape()[2];
+    //           Ou = W->Shape()[3]; 
 
-              fprintf(debug_out, "Weights Kernel Dim: %i Input Channels: %i Output Channels Channels: %i \n", kernel_dim, In, Ou);
-              for (int n = 0; n < Nu; n++) {
-                for (int h = 0; h < He; h++) {
-                  for (int w = 0; w < Wi; w++) {
-                    for (int in = 0; in < In; in++) {
-                      for (int ou = 0; ou < Ou; ou++) {
-                        // if(ou == ch1 || ou == ch2){
-                          fprintf(debug_out, "%i, ", Wdata[(((n*He + h)*Wi + w)*In + in)*Ou + ou]); 
-                        // }
-                    }
-                    }
-                  }
-                  fprintf(debug_out, "\n");
-                }
-                fprintf(debug_out, "\n");
-              }
+    //           fprintf(debug_out, "Weights Kernel Dim: %i Input Channels: %i Output Channels Channels: %i \n", kernel_dim, In, Ou);
+    //           for (int n = 0; n < Nu; n++) {
+    //             for (int h = 0; h < He; h++) {
+    //               for (int w = 0; w < Wi; w++) {
+    //                 for (int in = 0; in < In; in++) {
+    //                   for (int ou = 0; ou < Ou; ou++) {
+    //                     // if(ou == ch1 || ou == ch2){
+    //                       fprintf(debug_out, "%i, ", Wdata[(((n*He + h)*Wi + w)*In + in)*Ou + ou]); 
+    //                     // }
+    //                 }
+    //                 }
+    //               }
+    //               fprintf(debug_out, "\n");
+    //             }
+    //             fprintf(debug_out, "\n");
+    //           }
 
-              fprintf(debug_out, "\n");
-              for (int i = 0; i < He*Wi*In*Ou; i++) printf("%i " , Wdata[i]);
-              fprintf(debug_out, "\n");
+    //           fprintf(debug_out, "\n");
+    //           for (int i = 0; i < He*Wi*In*Ou; i++) printf("%i " , Wdata[i]);
+    //           fprintf(debug_out, "\n");
 
-              // printf("\n");
-              // for (int i = 0; i < He*Wi*Ch*W->Shape()[3]; i++) printf("%i " , Wdata[i]);
-              // printf("\n");
+    //           // printf("\n");
+    //           // for (int i = 0; i < He*Wi*Ch*W->Shape()[3]; i++) printf("%i " , Wdata[i]);
+    //           // printf("\n");
 
 
-              // Nu = 1; 
-              // He = kernel_shape[0];
-              // Wi = kernel_shape[1];
-              // Ch = W->Shape()[3];
+    //           // Nu = 1; 
+    //           // He = kernel_shape[0];
+    //           // Wi = kernel_shape[1];
+    //           // Ch = W->Shape()[3];
 
-              // printf("\n");
-              // for (int n = 0; n < Nu; n++) {
-              //   for (int h = 0; h < He; h++) {
-              //     for (int w = 0; w < Wi; w++) {
-              //       for (int c = 0; c < C; c++) {
+    //           // printf("\n");
+    //           // for (int n = 0; n < Nu; n++) {
+    //           //   for (int h = 0; h < He; h++) {
+    //           //     for (int w = 0; w < Wi; w++) {
+    //           //       for (int c = 0; c < C; c++) {
                     
-              //         printf("%i ", Wdata[((n*He + h)*Wi + w)*Ch + c]); 
+    //           //         printf("%i ", Wdata[((n*He + h)*Wi + w)*Ch + c]); 
                       
-              //       }
-              //     }
-              //   }
+    //           //       }
+    //           //     }
+    //           //   }
   
-              // }
-              // printf("\n");
+    //           // }
+    //           // printf("\n");
 
-              fprintf(debug_out, "Output:\nN: %li \t Group: %li \t Output Image Size: %li  \t M / Group: %li \t Kernel Dim: %li \n", N, conv_attrs_.group, output_image_size, M / conv_attrs_.group, kernel_dim);
-              fprintf(debug_out, "Output Size: %li Confirm: %li Output Channels: %i \n", output_image_size, output_shape[0] * output_shape[1], Y->Shape()[3]);
+    //           fprintf(debug_out, "Output:\nN: %li \t Group: %li \t Output Image Size: %li  \t M / Group: %li \t Kernel Dim: %li \n", N, conv_attrs_.group, output_image_size, M / conv_attrs_.group, kernel_dim);
+    //           fprintf(debug_out, "Output Size: %li Confirm: %li Output Channels: %i \n", output_image_size, output_shape[0] * output_shape[1], Y->Shape()[3]);
 
-              Nu = 1; 
-              He = output_shape[0];
-              Wi = output_shape[1];
-              Ch = Y->Shape()[3];
+    //           Nu = 1; 
+    //           He = output_shape[0];
+    //           Wi = output_shape[1];
+    //           Ch = Y->Shape()[3];
 
-              for (int n = 0; n < Nu; n++) {
-                for (int h = 0; h < He; h++) {
-                  for (int w = 0; w < Wi; w++) {
-                    for (int c = 0; c < Ch; c++) {
-                      // if (c == ch1 || c == ch2){
-                        fprintf(debug_out, "%i, ", Ydata[((n*He + h)*Wi + w)*Ch + c]); 
-                      // }
-                    }
-                  }
-                  fprintf(debug_out, "\n");
-                }
-                fprintf(debug_out, "\n");
-              }
+    //           for (int n = 0; n < Nu; n++) {
+    //             for (int h = 0; h < He; h++) {
+    //               for (int w = 0; w < Wi; w++) {
+    //                 for (int c = 0; c < Ch; c++) {
+    //                   // if (c == ch1 || c == ch2){
+    //                     fprintf(debug_out, "%i, ", Ydata[((n*He + h)*Wi + w)*Ch + c]); 
+    //                   // }
+    //                 }
+    //               }
+    //               fprintf(debug_out, "\n");
+    //             }
+    //             fprintf(debug_out, "\n");
+    //           }
 
-        fclose(debug_out);
+    //     fclose(debug_out);
 
-        Xdata += X_offset;
-        Ydata += Y_offset;
+    //     Xdata += X_offset;
+    //     Ydata += Y_offset;
         
         
 
 
-      }
-      else {
+    //   }
+    //   else {
     // We use a version of im2col that does all groups at once
     // Whereas official onnxruntime optimization (CPU kernel) has a version
     // that operates at a per-group level
@@ -461,84 +458,84 @@ Status QLinearConv_nhwc::Compute(OpKernelContext* context) const {
       //               nullptr, static_cast<int>(M / conv_attrs_.group));
     }
       
-    Nu = 1; 
-    He = input_shape[0];
-    Wi = input_shape[1];
-    Ch = X->Shape()[3];
+  //   Nu = 1; 
+  //   He = input_shape[0];
+  //   Wi = input_shape[1];
+  //   Ch = X->Shape()[3];
     
-    // printf("testing!!!\n");
-    fprintf(debug_out, "After Systolic Input:\nM: %li \t Group: %li \t Input Image Size: HxW %li x %li \t C: %li \t Kernel Dim: %li \n", M, conv_attrs_.group, input_shape[0], input_shape[1], C, kernel_dim);
-    fprintf(debug_out, "Input Size: %li Confirm: %li Channels: %i \n", input_image_size, input_shape[0] * input_shape[1], Ch);
+  //   // printf("testing!!!\n");
+  //   fprintf(debug_out, "After Systolic Input:\nM: %li \t Group: %li \t Input Image Size: HxW %li x %li \t C: %li \t Kernel Dim: %li \n", M, conv_attrs_.group, input_shape[0], input_shape[1], C, kernel_dim);
+  //   fprintf(debug_out, "Input Size: %li Confirm: %li Channels: %i \n", input_image_size, input_shape[0] * input_shape[1], Ch);
     
-    for (int n = 0; n < Nu; n++) {
-      for (int h = 0; h < He; h++) {
-        for (int w = 0; w < Wi; w++) {
-          for (int c = 0; c < Ch; c++) {
-            // if(c == ch1 || c == ch2){
-              fprintf(debug_out, "%i, ", Xdata[((n*He + h)*Wi + w)*Ch + c]); 
-            // }
-          }
-        }
-        fprintf(debug_out, "\n");
-      }
-      fprintf(debug_out, "\n");
-    }
+  //   for (int n = 0; n < Nu; n++) {
+  //     for (int h = 0; h < He; h++) {
+  //       for (int w = 0; w < Wi; w++) {
+  //         for (int c = 0; c < Ch; c++) {
+  //           // if(c == ch1 || c == ch2){
+  //             fprintf(debug_out, "%i, ", Xdata[((n*He + h)*Wi + w)*Ch + c]); 
+  //           // }
+  //         }
+  //       }
+  //       fprintf(debug_out, "\n");
+  //     }
+  //     fprintf(debug_out, "\n");
+  //   }
   
 
-    Nu = 1; 
-    He = kernel_shape[0];
-    Wi = kernel_shape[1];
-    Ch = W->Shape()[2];
-    In = W->Shape()[2];
-    Ou = W->Shape()[3];
+  //   Nu = 1; 
+  //   He = kernel_shape[0];
+  //   Wi = kernel_shape[1];
+  //   Ch = W->Shape()[2];
+  //   In = W->Shape()[2];
+  //   Ou = W->Shape()[3];
 
-    fprintf(debug_out, "Weights Kernel Dim: %i Input Channels: %i Output Channels Channels: %i \n", kernel_dim, W->Shape()[2], W->Shape()[3]);
-    for (int n = 0; n < Nu; n++) {
-      for (int h = 0; h < He; h++) {
-        for (int w = 0; w < Wi; w++) {
-          for (int in = 0; in < In; in++) {
-            for (int ou = 0; ou < Ou; ou++) {
-              // if(ou  == ch1 || ou == ch2){
-                fprintf(debug_out, "%i, ", Wdata[(((n*He + h)*Wi + w)*In + in)*Ou + ou]); 
-              // }
-          }
-          }
-        }
-        fprintf(debug_out, "\n");
-      }
-      fprintf(debug_out, "\n");
-    }
+  //   fprintf(debug_out, "Weights Kernel Dim: %i Input Channels: %i Output Channels Channels: %i \n", kernel_dim, W->Shape()[2], W->Shape()[3]);
+  //   for (int n = 0; n < Nu; n++) {
+  //     for (int h = 0; h < He; h++) {
+  //       for (int w = 0; w < Wi; w++) {
+  //         for (int in = 0; in < In; in++) {
+  //           for (int ou = 0; ou < Ou; ou++) {
+  //             // if(ou  == ch1 || ou == ch2){
+  //               fprintf(debug_out, "%i, ", Wdata[(((n*He + h)*Wi + w)*In + in)*Ou + ou]); 
+  //             // }
+  //         }
+  //         }
+  //       }
+  //       fprintf(debug_out, "\n");
+  //     }
+  //     fprintf(debug_out, "\n");
+  //   }
     
-    fprintf(debug_out, "\n");
-    for (int i = 0; i < He*Wi*In*Ou; i++) fprintf(debug_out, "%i " , Wdata[i]);
-    fprintf(debug_out, "\n");
+  //   fprintf(debug_out, "\n");
+  //   for (int i = 0; i < He*Wi*In*Ou; i++) fprintf(debug_out, "%i " , Wdata[i]);
+  //   fprintf(debug_out, "\n");
 
-    fprintf(debug_out, "Output:\nN: %li \t Group: %li \t Output Image Size: %li  \t M / Group: %li \t Kernel Dim: %li \n", N, conv_attrs_.group, output_image_size, M / conv_attrs_.group, kernel_dim);
-    fprintf(debug_out, "Output Size: %li Confirm: %li Output Channels: %i \n", output_image_size, output_shape[0] * output_shape[1], Y->Shape()[3]);
+  //   fprintf(debug_out, "Output:\nN: %li \t Group: %li \t Output Image Size: %li  \t M / Group: %li \t Kernel Dim: %li \n", N, conv_attrs_.group, output_image_size, M / conv_attrs_.group, kernel_dim);
+  //   fprintf(debug_out, "Output Size: %li Confirm: %li Output Channels: %i \n", output_image_size, output_shape[0] * output_shape[1], Y->Shape()[3]);
 
-    Nu = 1; 
-    He = output_shape[0];
-    Wi = output_shape[1];
-    Ch = Y->Shape()[3];
+  //   Nu = 1; 
+  //   He = output_shape[0];
+  //   Wi = output_shape[1];
+  //   Ch = Y->Shape()[3];
 
-    for (int n = 0; n < Nu; n++) {
-      for (int h = 0; h < He; h++) {
-        for (int w = 0; w < Wi; w++) {
-          for (int c = 0; c < Ch; c++) {
-            // if(c  == ch1 || c == ch2){
-              fprintf(debug_out, "%i, ", Ydata[((n*He + h)*Wi + w)*Ch + c]); 
-            // }
-          }
-        }
-        fprintf(debug_out, "\n");
-      }
-      fprintf(debug_out, "\n");
-    }
-    //debug_out.close();
-    fclose(debug_out);
+  //   for (int n = 0; n < Nu; n++) {
+  //     for (int h = 0; h < He; h++) {
+  //       for (int w = 0; w < Wi; w++) {
+  //         for (int c = 0; c < Ch; c++) {
+  //           // if(c  == ch1 || c == ch2){
+  //             fprintf(debug_out, "%i, ", Ydata[((n*He + h)*Wi + w)*Ch + c]); 
+  //           // }
+  //         }
+  //       }
+  //       fprintf(debug_out, "\n");
+  //     }
+  //     fprintf(debug_out, "\n");
+  //   }
+  //   //debug_out.close();
+  //   fclose(debug_out);
     Xdata += X_offset;
     Ydata += Y_offset;
-  }
+  //}
 
   // Ydata = Y->template MutableData<int8_t>();
   // for (auto i = 0; i < Y->Shape().Size(); i++) {
