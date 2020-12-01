@@ -80,19 +80,7 @@ HwachaExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph,
       if ((node.OpType() == "QLinearConv") || KernelRegistry::HasImplementationOf(*registry, node, Type())) {
         const auto* group_attr = graph_utils::GetNodeAttribute(node, "group");
         int group_count = group_attr->i();
-        
-        
-        
-        // auto& input_defs = (&node)->MutableInputDefs();
-        // auto& input_defs_2 = node.MutableInputDefs();
         if(node.InputDefs()[0]->Shape() != nullptr && node.InputDefs()[0]->Shape()->dim_size() == 4){ //Call GraphUtils::NodeArgIsConstant
-          // printf("Not null: dim size %i \n", node.InputDefs()[0]->Shape()->dim_size());
-          // printf("Not null: dim size %i \n", node.InputDefs()[1]->Shape()->dim_size());
-          // printf("Not null: dim size %i \n", node.InputDefs()[2]->Shape()->dim_size());
-          // printf("Not null: dim size %i \n", node.OutputDefs()[0]->Shape()->dim_size());
-          // printf("Not null: dim size %i \n", node.OutputDefs()[1]->Shape()->dim_size());
-          // printf("Not null: dim size %i \n", node.OutputDefs()[2]->Shape()->dim_size());
-          //fprintf(stderr, "Input SHAPE %i, %i, %i, %i \n", node.InputDefs()[0]->Shape()->dim(0).dim_value(), node.InputDefs()[0]->Shape()->dim(1).dim_value(), node.InputDefs()[0]->Shape()->dim(2).dim_value(), node.InputDefs()[0]->Shape()->dim(3).dim_value());
           if(group_count <= 1 || group_count != node.InputDefs()[0]->Shape()->dim(1).dim_value()){
             continue;
           }
