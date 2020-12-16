@@ -204,15 +204,14 @@ Status QLinearConv_nhwc::Compute(OpKernelContext* context) const {
   
   string file_name = (Node().Name()+ "_ref.out").c_str();
   std::replace(file_name.begin(), file_name.end(), '/', '_');
-  //ofstream debug_out(("debug_verbose/" + file_name).c_str());
+  
 
-  FILE *debug_out;
+  // FILE *debug_out;
   //debug_out = fopen("debug_verbose_student/all_layers_student.out","a");
-  debug_out = fopen(("debug_verbose_student/" + file_name).c_str(),"w");
+  // debug_out = fopen(("debug_verbose_student/" + file_name).c_str(),"w");
 
-  // fstream debug_out; 
-  // debug_out.open(("debug_verbose/" + Node().Name()+ "_ref.out").c_str(), ios::out); 
-  if(!debug_out) printf("FILE DID NOT OPEN! %s\n", ("debug_verbose/" + file_name).c_str());
+ 
+  // if(!debug_out) printf("FILE DID NOT OPEN! %s\n", ("debug_verbose/" + file_name).c_str());
   // The col buffer is stored in HWC order as well - the height and width, and
   // kernel_dim.
 

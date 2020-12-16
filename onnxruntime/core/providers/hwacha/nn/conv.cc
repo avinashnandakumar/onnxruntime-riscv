@@ -224,292 +224,44 @@ Status QLinearConv<StorageOrder::NHWC>::Compute(OpKernelContext* context) const 
     
     printf("Real Multiplier: %f\n", real_multiplier);
     if (conv_attrs_.group > 1 && conv_attrs_.group == C ){
-    //if (C == 2){
-      // FILE *debug_out;
-  // debug_out = fopen("debug_verbose_ref/all_layers_student.out","a");
-       printf("Called Hwacha DWC\n");
-          HwachaDepthWiseConv(0,//batchsize
-              conv_attrs_.group,
-              C,
-              input_shape[0], input_shape[1],
-              0, //filtercount
-              kernel_shape[0], kernel_shape[1],
-              // 1,1,
-              // 1,1,
-              pads[0], pads[1],
-              pads[2], pads[3],
-              dilations[0], dilations[1],
-              strides[0], strides[1],
-              output_shape[0], output_shape[1],
-              Xdata,
-              Wdata,
-              Bdata,
-              Ydata,
-              real_multiplier); 
+      printf("Called Hwacha DWC\n");
+      HwachaDepthWiseConv(0,//batchsize
+          conv_attrs_.group,
+          C,
+          input_shape[0], input_shape[1],
+          0, //filtercount
+          kernel_shape[0], kernel_shape[1],
+          // 1,1,
+          // 1,1,
+          pads[0], pads[1],
+          pads[2], pads[3],
+          dilations[0], dilations[1],
+          strides[0], strides[1],
+          output_shape[0], output_shape[1],
+          Xdata,
+          Wdata,
+          Bdata,
+          Ydata,
+          real_multiplier);
 
-              Nu = 1; 
-              He = input_shape[0];
-              Wi = input_shape[1];
-              Ch = C;
-              
-        //       fprintf(debug_out, "Hwacha Input:\nM: %li \t Group: %li \t Input Image Size: HxW %li x %li \t C: %li \t Kernel Dim: %li \n", M, conv_attrs_.group, input_shape[0], input_shape[1], C, kernel_dim);
-        //       fprintf(debug_out, "Input Size: %li Confirm: %li Channels: %i \n", input_image_size, input_shape[0] * input_shape[1], Ch);
-    
-        //       for (int n = 0; n < Nu; n++) {
-        //         for (int h = 0; h < He; h++) {
-        //           for (int w = 0; w < Wi; w++) {
-        //             for (int c = 0; c < Ch; c++) {
-        //               // if(c == ch1 || c == ch2){
-        //                 fprintf(debug_out, "%i, ", Xdata[((n*He + h)*Wi + w)*Ch + c]); 
-        //               // }
-        //             }
-        //           }
-        //           fprintf(debug_out, "\n");
-        //         }
-        //         fprintf(debug_out, "\n");
-        //       }
-            
-
-        //       Nu = 1; 
-        //       He = kernel_shape[0];
-        //       Wi = kernel_shape[1];
-        //       Ch = W->Shape()[2];
-        //       In = W->Shape()[2];
-        //       Ou = W->Shape()[3]; 
-
-        //       fprintf(debug_out, "Weights Kernel Dim: %i Input Channels: %i Output Channels Channels: %i \n", kernel_dim, In, Ou);
-        //       for (int n = 0; n < Nu; n++) {
-        //         for (int h = 0; h < He; h++) {
-        //           for (int w = 0; w < Wi; w++) {
-        //             for (int in = 0; in < In; in++) {
-        //               for (int ou = 0; ou < Ou; ou++) {
-        //                 // if(ou == ch1 || ou == ch2){
-        //                   fprintf(debug_out, "%i, ", Wdata[(((n*He + h)*Wi + w)*In + in)*Ou + ou]); 
-        //                 // }
-        //             }
-        //             }
-        //           }
-        //           fprintf(debug_out, "\n");
-        //         }
-        //         fprintf(debug_out, "\n");
-        //       }
-
-        //       fprintf(debug_out, "\n");
-        //       for (int i = 0; i < He*Wi*In*Ou; i++) printf("%i " , Wdata[i]);
-        //       fprintf(debug_out, "\n");
-
-        //       // printf("\n");
-        //       // for (int i = 0; i < He*Wi*Ch*W->Shape()[3]; i++) printf("%i " , Wdata[i]);
-        //       // printf("\n");
-
-
-        //       // Nu = 1; 
-        //       // He = kernel_shape[0];
-        //       // Wi = kernel_shape[1];
-        //       // Ch = W->Shape()[3];
-
-        //       // printf("\n");
-        //       // for (int n = 0; n < Nu; n++) {
-        //       //   for (int h = 0; h < He; h++) {
-        //       //     for (int w = 0; w < Wi; w++) {
-        //       //       for (int c = 0; c < C; c++) {
-                    
-        //       //         printf("%i ", Wdata[((n*He + h)*Wi + w)*Ch + c]); 
-                      
-        //       //       }
-        //       //     }
-        //       //   }
-  
-        //       // }
-        //       // printf("\n");
-
-        //       fprintf(debug_out, "Output:\nN: %li \t Group: %li \t Output Image Size: %li  \t M / Group: %li \t Kernel Dim: %li \n", N, conv_attrs_.group, output_image_size, M / conv_attrs_.group, kernel_dim);
-        //       fprintf(debug_out, "Output Size: %li Confirm: %li Output Channels: %i \n", output_image_size, output_shape[0] * output_shape[1], Y->Shape()[3]);
-
-        //       Nu = 1; 
-        //       He = output_shape[0];
-        //       Wi = output_shape[1];
-        //       Ch = Y->Shape()[3];
-
-        //       for (int n = 0; n < Nu; n++) {
-        //         for (int h = 0; h < He; h++) {
-        //           for (int w = 0; w < Wi; w++) {
-        //             for (int c = 0; c < Ch; c++) {
-        //               // if (c == ch1 || c == ch2){
-        //                 fprintf(debug_out, "%i, ", Ydata[((n*He + h)*Wi + w)*Ch + c]); 
-        //               // }
-        //             }
-        //           }
-        //           fprintf(debug_out, "\n");
-        //         }
-        //         fprintf(debug_out, "\n");
-        //       }
-
-        // fclose(debug_out);
-
-        Xdata += X_offset;
-        Ydata += Y_offset;
-        
-        
-
+          if (profiling_enabled) {
+            // std::string channels_string;
+            // channel_string = std::to_string(static_cast<int>(M / conv_attrs_.group)) +
+            //                   ", " + std::to_string(static_cast<int>(output_image_size)) + ", " +
+            //                   std::to_string(static_cast<int>(kernel_dim));
+            profiler.EndTimeAndRecordEvent(profiling::NODE_EVENT,
+                                          Node().Name(),
+                                          start_time,
+                                          {{"op_name", KernelDef().OpName()},
+                                            {"dimensions", std::to_string(static_cast<int>(C))},
+                                            {"provider", KernelDef().Provider()}});
+            start_time = profiler.StartTime();
+        }
 
       }
-    //   else {
-    // We use a version of im2col that does all groups at once
-    // Whereas official onnxruntime optimization (CPU kernel) has a version
-    // that operates at a per-group level
-    // IF one were to parallelize across multiple cores, you could use that
-    // Refer to the CPU QLinearConv impl. to see how that works
-    //     if (col_buffer_data != nullptr) {
-    //       math::Im2col<int8_t, StorageOrder::NHWC>()(
-    //           Xdata,
-    //           C,
-    //           input_shape[0],
-    //           input_shape[1],
-    //           kernel_shape[0],
-    //           kernel_shape[1],
-    //           dilations[0],
-    //           dilations[1],
-    //           pads[0],
-    //           pads[1],
-    //           pads[2],
-    //           pads[3],
-    //           strides[0],
-    //           strides[1],
-    //           col_buffer_data,
-    //           conv_attrs_.group,
-    //           X_zero_point_value);
-
-    //       if (profiling_enabled) {
-    //         profiler.EndTimeAndRecordEvent(profiling::NODE_EVENT,
-    //                                       Node().Name() + "_kernel_nhwc_im2col_time",
-    //                                       start_time,
-    //                                       {{"op_name", KernelDef().OpName()},
-    //                                         {"sub_action", "im2col"},
-    //                                         {"provider", KernelDef().Provider()}});
-    //         start_time = profiler.StartTime();
-    //       }
-    //     }
-    
-    // for (int group_id = 0; group_id < conv_attrs_.group; ++group_id) {
-    //   const int8_t* weight_base = Wdata + group_id * static_cast<int>(M / conv_attrs_.group);
-    //   // SystolicMultiply(static_cast<const SystolicExecutionProvider*>(this->Info().GetExecutionProvider())->GetAcceleratorMode(),
-    //   //                  /*relu= */ fused_relu_,
-    //   //                  static_cast<int>(output_image_size),
-    //   //                  static_cast<int>(M / conv_attrs_.group),
-    //   //                  static_cast<int>(kernel_dim),
-    //   //                  (col_buffer_data == nullptr ? Xdata : col_buffer_data) + group_id * static_cast<int>(kernel_dim), conv_attrs_.group * static_cast<int>(kernel_dim),
-    //   //                  weight_base, static_cast<int>(M),
-    //   //                  Ydata + group_id * static_cast<int>(M / conv_attrs_.group), static_cast<int>(M),
-    //   //                  real_multiplier,
-    //   //                  Bdata != nullptr ? Bdata + group_id * B_offset : nullptr, static_cast<int>(M / conv_attrs_.group),
-    //   //                  /*repeating_bias= */ true);
-
-    //   if (profiling_enabled) {
-    //     std::string dimension_string;
-    //     dimension_string = std::to_string(static_cast<int>(M / conv_attrs_.group)) +
-    //                        ", " + std::to_string(static_cast<int>(output_image_size)) + ", " +
-    //                        std::to_string(static_cast<int>(kernel_dim));
-    //     profiler.EndTimeAndRecordEvent(profiling::NODE_EVENT,
-    //                                    Node().Name() + "_kernel_matmul_time",
-    //                                    start_time,
-    //                                    {{"op_name", KernelDef().OpName()},
-    //                                     {"sub_action", "matmul"},
-    //                                     {"relu_fused", fused_relu_ ? "yes" : "no"},
-    //                                     {"dimensions", dimension_string},
-    //                                     {"provider", KernelDef().Provider()}});
-    //     start_time = profiler.StartTime();
-    //   }
-
-      // GemmlowpDebug(static_cast<int>(output_image_size),
-      //               static_cast<int>(M / conv_attrs_.group),
-      //               static_cast<int>(kernel_dim),
-      //               col_buffer_data + group_id * static_cast<int>(kernel_dim), conv_attrs_.group * static_cast<int>(kernel_dim),
-      //               weight_base, static_cast<int>(M / conv_attrs_.group),
-      //               Ydata + group_id * static_cast<int>(M / conv_attrs_.group), static_cast<int>(M),
-      //               real_multiplier,
-      //               nullptr, static_cast<int>(M / conv_attrs_.group));
-    //}
-      
-    // Nu = 1; 
-    // He = input_shape[0];
-    // Wi = input_shape[1];
-    // Ch = X->Shape()[3];
-    
- 
-    // fprintf(debug_out, "After Systolic Input:\nM: %li \t Group: %li \t Input Image Size: HxW %li x %li \t C: %li \t Kernel Dim: %li \n", M, conv_attrs_.group, input_shape[0], input_shape[1], C, kernel_dim);
-    // fprintf(debug_out, "Input Size: %li Confirm: %li Channels: %i \n", input_image_size, input_shape[0] * input_shape[1], Ch);
-    
-    // for (int n = 0; n < Nu; n++) {
-    //   for (int h = 0; h < He; h++) {
-    //     for (int w = 0; w < Wi; w++) {
-    //       for (int c = 0; c < Ch; c++) {
-    //         // if(c == ch1 || c == ch2){
-    //           fprintf(debug_out, "%i, ", Xdata[((n*He + h)*Wi + w)*Ch + c]); 
-    //         // }
-    //       }
-    //     }
-    //     fprintf(debug_out, "\n");
-    //   }
-    //   fprintf(debug_out, "\n");
-    // }
-  
-
-    // Nu = 1; 
-    // He = kernel_shape[0];
-    // Wi = kernel_shape[1];
-    // Ch = W->Shape()[2];
-    // In = W->Shape()[2];
-    // Ou = W->Shape()[3];
-
-    // fprintf(debug_out, "Weights Kernel Dim: %i Input Channels: %i Output Channels Channels: %i \n", kernel_dim, W->Shape()[2], W->Shape()[3]);
-    // for (int n = 0; n < Nu; n++) {
-    //   for (int h = 0; h < He; h++) {
-    //     for (int w = 0; w < Wi; w++) {
-    //       for (int in = 0; in < In; in++) {
-    //         for (int ou = 0; ou < Ou; ou++) {
-    //           // if(ou  == ch1 || ou == ch2){
-    //             fprintf(debug_out, "%i, ", Wdata[(((n*He + h)*Wi + w)*In + in)*Ou + ou]); 
-    //           // }
-    //       }
-    //       }
-    //     }
-    //     fprintf(debug_out, "\n");
-    //   }
-    //   fprintf(debug_out, "\n");
-    // }
-    
-    // fprintf(debug_out, "\n");
-    // for (int i = 0; i < He*Wi*In*Ou; i++) fprintf(debug_out, "%i " , Wdata[i]);
-    // fprintf(debug_out, "\n");
-
-    // fprintf(debug_out, "Output:\nN: %li \t Group: %li \t Output Image Size: %li  \t M / Group: %li \t Kernel Dim: %li \n", N, conv_attrs_.group, output_image_size, M / conv_attrs_.group, kernel_dim);
-    // fprintf(debug_out, "Output Size: %li Confirm: %li Output Channels: %i \n", output_image_size, output_shape[0] * output_shape[1], Y->Shape()[3]);
-
-    // Nu = 1; 
-    // He = output_shape[0];
-    // Wi = output_shape[1];
-    // Ch = Y->Shape()[3];
-
-    // for (int n = 0; n < Nu; n++) {
-    //   for (int h = 0; h < He; h++) {
-    //     for (int w = 0; w < Wi; w++) {
-    //       for (int c = 0; c < Ch; c++) {
-    //         // if(c  == ch1 || c == ch2){
-    //           fprintf(debug_out, "%i, ", Ydata[((n*He + h)*Wi + w)*Ch + c]); 
-    //         // }
-    //       }
-    //     }
-    //     fprintf(debug_out, "\n");
-    //   }
-    //   fprintf(debug_out, "\n");
-    // }
-    // //debug_out.close();
-    // fclose(debug_out);
-    // Xdata += X_offset;
-    // Ydata += Y_offset;
-  //}
-}
+      Xdata += X_offset;
+      Ydata += Y_offset;
+  }
   
   return Status::OK();
 }
