@@ -49,6 +49,10 @@ static void GemmBroadcastBias(int64_t M, int64_t N, float beta,
   }
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> Add Gemm op when using FP gemmini
 template <>
 Status Gemm<float>::Compute(OpKernelContext* context) const {
   const auto* A = context->Input<Tensor>(0);
@@ -67,7 +71,7 @@ Status Gemm<float>::Compute(OpKernelContext* context) const {
   int64_t K = helper.K();
 
   //printf("M, N, K: %d %d %d\n", (int) M, (int) N, (int) K);
-
+  
   auto Y = context->Output(0, {M, N});
 
   // if input is empty tensor, return as nothing need to be calculated and we've set the shape for the output
