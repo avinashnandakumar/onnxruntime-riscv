@@ -22,10 +22,10 @@ void HwachaDepthWiseConv(const size_t batch_size,
                          const int8_t* input, const int8_t* filter, const int32_t* bias,
                          int8_t* output, const float real_multiplier) {
   
-  // printf("Starting Hwacha Depth Wise Convolution!\n");
+  printf("Starting Hwacha Depth Wise Convolution!\n");
 
-  printf("Padding Left Height: %li Padding Left Widdth: %li Padding Right Height: %li Padding Right Width: %li\n",
-         pad_left_height, pad_left_width, pad_right_height, pad_right_width);
+  //printf("Padding Left Height: %li Padding Left Widdth: %li Padding Right Height: %li Padding Right Width: %li\n",
+  //       pad_left_height, pad_left_width, pad_right_height, pad_right_width);
 
   
 
@@ -41,8 +41,8 @@ void HwachaDepthWiseConv(const size_t batch_size,
   setvcfg(0, 1, 4, 1);
   int count = 0;
   int consumed = setvlen(channels);
-  // fprintf(debug_out, "Consumed length: %i\n", consumed);
-  // fprintf(debug_out, "Real Multiplier: %f\n", real_multiplier);
+  fprintf(stdout, "Consumed length: %i\n", consumed);
+  fprintf(stdout, "Real Multiplier: %f\n", real_multiplier);
   const float min = -128.0;
   const float max = 127.0;
 
@@ -117,6 +117,9 @@ void HwachaDepthWiseConv(const size_t batch_size,
             // fprintf(debug_out, "output_y: %i output_x: %i input_y: %i input_x: %i input_x_cnt: %i filter_y: %i filter_x: %i filter_x_cnt: %i \n",
                   // output_idy, output_idx, input_idy, input_idx, input_idx_cnt, filter_idy, filter_idx, filter_idx_cnt);
 
+            //printf("Calling VF VTEST: 3\n");
+
+            
             asm volatile("vmca va1, %0" : : "r" (input_ptr + input_idx_cnt + input_idy * in_width * channels));
             asm volatile("vmca va2, %0" : : "r" (filter + filter_idx_cnt + filter_idy * kernel_width * channels));
             asm volatile("la t0, vtest3" : : : "t0");
@@ -129,6 +132,8 @@ void HwachaDepthWiseConv(const size_t batch_size,
           }
           input_idy += 1;
         }
+
+        //printf("Calling VF VTEST: 6\n");
         
         asm volatile("vmca va0, %0" : : "r" (temp_output));  //output
         asm volatile("vmca va1, %0" : : "r" (output + output_idx + output_idy * out_width * channels));  //output
@@ -151,7 +156,7 @@ void HwachaDepthWiseConv(const size_t batch_size,
   }
   asm volatile("fence");
 
-  printf("\nFinished Hwacha Depthwise Convolution! \n");
+  printf("Finished Hwacha Depthwise Convolution!\n");
   
   // for (size_t m = 0; m < out_height; m++) {
   //   for (size_t k = 0; k < out_width; k++) {

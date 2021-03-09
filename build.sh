@@ -8,8 +8,12 @@ OS=$(uname -s)
 
 # Setup RISCV environment variables. Ensure that riscv/esp-tools GCC is in your path.
 # By default, we assume we are building for systolic only, so riscv-tools suffices with standard target
+#export CXX=riscv64-unknown-linux-gnu-g++
+#export CXX=riscv64-unknown-linux-gnu-g++
 export CXX=riscv64-unknown-linux-gnu-g++
 export CC=riscv64-unknown-linux-gnu-gcc
+#export CC=/nscratch/avi/chipyard/esp-tools-install/bin/riscv64-unknown-linux-gnu-gcc
+#export CC=/nscratch/avi/chipyard/esp-tools-install/bin/riscv64-unknown-linux-gnu-gcc
 export CXXFLAGS="-march=rv64imafdc -mabi=lp64d"
 
 BUILD_TYPE="Debug"

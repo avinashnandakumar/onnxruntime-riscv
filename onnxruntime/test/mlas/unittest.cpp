@@ -99,7 +99,8 @@ public:
                 ORT_THROW_EX(std::bad_alloc);
             }
 #else
-            if (mprotect(_BaseBuffer, BytesToAllocate, PROT_READ | PROT_WRITE) != 0) {
+            //if (mprotect(_BaseBuffer, BytesToAllocate, PROT_READ | PROT_WRITE) != 0) {
+            if (true) {
                 printf("Failed to protect guard region. Retrying without guard enabled.\n");
                 munmap(_BaseBuffer, _BaseBufferSize);
                 _BaseBuffer = mmap(0, _BaseBufferSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -127,8 +128,8 @@ public:
 
         } else {
 
-            const int MinimumFillValue = -23;
-            const int MaximumFillValue = 23;
+            const int MinimumFillValue = -7;
+            const int MaximumFillValue = 7;
 
             int FillValue = MinimumFillValue;
             T* FillAddress = buffer;
@@ -3132,6 +3133,12 @@ main(
     }
 #endif
     
+
+#ifdef USE_HWACHA
+    printf("Hwacha Depthwise Conv tests.\n");
+    onnxruntime::make_unique<MlasHwachaDWCTest<int8_t, int32_t>>()->ExecuteLong();
+#endif
+
 #ifdef USE_SYSTOLIC
 #ifdef SYSTOLIC_INT8
     printf("Systolic Int8 Conv tests.\n");
@@ -3148,6 +3155,26 @@ main(
     onnxruntime::make_unique<MlasSystolicMatmulTest<float, float>>(argc - 1)->ExecuteShort();
 #endif
 #endif
+
+    
+
+//#ifdef USE_SYSTOLIC
+//#define UNUSED(x) (void)(x)
+//    UNUSED(argc); // Suppress spurious argc warning
+//#undef UNUSED
+//#ifdef SYSTOLIC_INT8
+//    printf("Systolic Int8 Conv tests.\n");
+//    onnxruntime::make_unique<MlasSystolicConvTest<int8_t, int32_t>>(argc - 1)->ExecuteShort();
+//    printf("Systolic Int8 Resadd tests.\n");
+//    onnxruntime::make_unique<MlasSystolicAddTest<int8_t, int32_t>>(argc - 1)->ExecuteShort();
+//    printf("Systolic Int8 Matmul tests.\n");
+//    onnxruntime::make_unique<MlasSystolicMatmulTest<int8_t, int32_t>>(argc - 1)->ExecuteShort();
+//#endif
+//#ifdef SYSTOLIC_FP32
+//    printf("Systolic Fp32 Matmul tests.\n");
+//    onnxruntime::make_unique<MlasSystolicMatmulTest<float, float>>(argc - 1)->ExecuteShort();
+//#endif
+//#endif
 
     //
     // Run threaded tests without the thread pool.

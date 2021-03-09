@@ -4,7 +4,33 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wformat"
 #pragma GCC diagnostic ignored "-Wtype-limits"
+
+
+#include <mlas.h>
+#define ACC_SCALE(x, scale) \
+  ({float y = nearbyint((x) * (scale)); y > INT_MAX ? INT_MAX : (y < INT_MIN ? INT_MIN : (acc_t)y); })
+#define MVIN_SCALE(x, scale) \
+  (scale == 1.0 ? x : ({float y = nearbyint((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (elem_t)y); }))
+#define ELEM_T_MAX SCHAR_MAX
+#define ELEM_T_MIN SCHAR_MIN
+#define FMT "%d "
+template <typename elem_t, typename acc_t>
 class MlasHwachaDWCTest : public MlasTestBase {
+ private:
+
+  inline elem_t saturate(acc_t num, float scale, bool relu) {
+    num = ACC_SCALE(num, scale);
+    // Clip result
+    num = num > ELEM_T_MAX ? ELEM_T_MAX : (num < ELEM_T_MIN ? ELEM_T_MIN : num);
+    if (relu) {
+      num = num < 0 ? 0 : num;
+    }
+    return num;
+  }
+
+  int tests_total=0; 
+  int tests_passed=0;
+
  protected:
   void
   Test(
@@ -24,7 +50,7 @@ class MlasHwachaDWCTest : public MlasTestBase {
       size_t DilationWidth,
       size_t StrideHeight,
       size_t StrideWidth) {
-    printf("Testing: Image Dimensions: %i, %i; Filter Dimensions: %i, %i; # of Filters: %i; \n", InputHeight, InputWidth, KernelHeight, KernelWidth, FilterCount);
+    printf("Testing: Image Dimensions: %i x %i x %i; Kernel Dimensions: %i x %i x %i; Padding %i; Stride %i;\n", InputChannels, InputHeight, InputWidth, FilterCount, KernelHeight, KernelWidth, PaddingLeftHeight, StrideHeight);
     int64_t OutputHeight64 =
         ((int64_t(InputHeight) + int64_t(PaddingLeftHeight) + int64_t(PaddingRightHeight)) -
          (int64_t(DilationHeight) * (int64_t(KernelHeight) - 1) + 1)) /
@@ -76,96 +102,115 @@ class MlasHwachaDWCTest : public MlasTestBase {
                         Bias,
                         Output,
                         1);
+	conv_dw(BatchCount, 
+		       InputHeight, InputChannels, 
+		       InputChannels, OutputHeight,
+		       StrideHeight, PaddingLeftHeight, KernelHeight, 
+		       Input, Filter, NULL, OutputReference, 
+		       false, 1);
+    
+    //  printf("\n");
+    //  printf("input\n");
+    
+    // int Nu, He, Wi, Ch; 
 
-    ReferenceConv2D(BatchCount,
-                    GroupCount,
-                    InputChannels,
-                    InputHeight, InputWidth,
-                    FilterCount,
-                    KernelHeight, KernelWidth,
-                    PaddingLeftHeight, PaddingLeftWidth,
-                    DilationHeight, DilationWidth,
-                    StrideHeight, StrideWidth,
-                    OutputHeight, OutputWidth,
-                    Input,
-                    Filter,
-                    Bias,
-                    OutputReference);
-    // printf("\n");
-    // printf("input\n");
-    // for(size_t c = 0; c < InputChannels; c++){
-    //     printf("Channel %i\n",c);
-    //     for (size_t y = 0; y < InputHeight; y+=1) {
-    //     for (size_t x = c; x < InputWidth * InputChannels; x+=InputChannels) {
-    //         printf("%i ", Input[x + InputWidth * InputChannels * y]);
-    //     }
-    //     printf("\n");
-    //     }
-    //     printf("\n");
-    // }
-    // printf("\n");
+    // Nu = 1; 
+    // He = InputHeight;
+    // Wi = InputWidth;
+    // Ch = InputChannels;
 
-    // printf("filter\n");
-    // for (size_t k = 0; k < KernelHeight; k+=1) {
-    //     for (size_t l = 0; l < KernelWidth*FilterCount; l+=1) {
-    //         printf("%i ", Filter[k * InputChannels * KernelWidth + l]);
-    //     }
-    //     printf("\n");
-    // }
-
-    // printf("\n");
-    // printf("Filters:\n");
-
-    //   for (size_t f = 0; f < FilterCount;f++){
-    //     printf("filter %i\n", f);
-    //     for (size_t k = 0; k < KernelHeight; k+=1) {
-    //         for (size_t l = f; l < KernelWidth*FilterCount; l+=FilterCount) {
-    //             printf("%i ", Filter[k * FilterCount * KernelWidth + l]);
-    //         }
-    //         printf("\n");
+    // for (int n = 0; n < Nu; n++) {
+    //   for (int h = 0; h < He; h++) {
+    //     for (int w = 0; w < Wi; w++) {
+    //       for (int c = 0; c < Ch; c++) {
+    //         // if(c == ch1 || c == ch2){
+    //           printf("%i, \t", Input[((n*He + h)*Wi + w)*Ch + c]); 
+    //         // }
+    //       }
     //     }
     //     printf("\n");
     //   }
+    //   printf("\n");
+    // }
 
+
+    //  printf("filter\n");
+   
+
+    // Nu = 1; 
+    // He = KernelHeight;
+    // Wi = KernelWidth;
+    // Ch = FilterCount;
+
+    // for (int n = 0; n < Nu; n++) {
+    //   for (int h = 0; h < He; h++) {
+    //     for (int w = 0; w < Wi; w++) {
+    //       for (int c = 0; c < Ch; c++) {
+    //         // if(c == ch1 || c == ch2){
+    //           printf("%i, \t", Filter[((n*He + h)*Wi + w)*Ch + c]); 
+    //         // }
+    //       }
+    //     }
+    //     printf("\n");
+    //   }
+    //   printf("\n");
+    // }
+
+     
+
+
+
+    // Nu = 1; 
+    // He = OutputHeight;
+    // Wi = OutputWidth;
+    // Ch = FilterCount;
     // printf("\n");
     // printf("Reference Output:\n");
-    // //printf("output\n");
-    // for (size_t k = 0; k < OutputHeight; k+=1) {
-    //     for (size_t l = 0; l < OutputWidth*FilterCount; l+=1) {
-    //         printf("%p:%02x \t",  &OutputReference[k * FilterCount * OutputWidth + l], OutputReference[k * OutputWidth + l]);
+    // for (int n = 0; n < Nu; n++) {
+    //   for (int h = 0; h < He; h++) {
+    //     for (int w = 0; w < Wi; w++) {
+    //       for (int c = 0; c < Ch; c++) {
+    //         // if(c == ch1 || c == ch2){
+    //           printf("%p:%i \t", &OutputReference[((n*He + h)*Wi + w)*Ch + c], OutputReference[((n*He + h)*Wi + w)*Ch + c]);
+    //           //rintf("%p:%i \t",  &OutputReference[k * FilterCount * OutputWidth + l], OutputReference[k * OutputWidth + l]); 
+    //         // }
+    //       }
     //     }
     //     printf("\n");
+    //   }
+    //   printf("\n");
     // }
-    // printf("\n");
 
+    // Nu = 1; 
+    // He = OutputHeight;
+    // Wi = OutputWidth;
+    // Ch = FilterCount;
+    // printf("\n");
     // printf("Actual Output:\n");
-    // //printf("output\n");
-    // for (size_t k = 0; k < OutputHeight; k+=1) {
-    //     for (size_t l = 0; l < OutputWidth*FilterCount; l+=1) {
-    //         printf("%p:%02x \t", &Output[k * FilterCount * OutputWidth + l], Output[k * OutputWidth + l]);
+    // for (int n = 0; n < Nu; n++) {
+    //   for (int h = 0; h < He; h++) {
+    //     for (int w = 0; w < Wi; w++) {
+    //       for (int c = 0; c < Ch; c++) {
+    //         // if(c == ch1 || c == ch2){
+    //           printf("%p:%i \t", &Output[((n*He + h)*Wi + w)*Ch + c], Output[((n*He + h)*Wi + w)*Ch + c]);
+    //           //rintf("%p:%i \t",  &OutputReference[k * FilterCount * OutputWidth + l], OutputReference[k * OutputWidth + l]); 
+    //         // }
+    //       }
     //     }
     //     printf("\n");
+    //   }
+    //   printf("\n");
     // }
-    // printf("\n");
 
-    // for(size_t c = 0; c < InputChannels; c++){
-    //     printf("Channel %i\n",c);
-    //     for (size_t y = 0; y < OutputHeight; y+=1) {
-    //         for (size_t x = c; x < OutputWidth * InputChannels; x+=InputChannels) {
-    //             printf("%i ", OutputReference[x + OutputWidth * InputChannels * y]);
-    //         }
-    //     printf("\n");
-    //     }
-    //     printf("\n");
-    // }
-    // printf("\n");
-
+  
+    tests_total += 1;
     if (memcmp(Output, OutputReference, sizeof(int8_t) * OutputElements) != 0) {
-      printf("mismatch: batch=%zd,group=%zd,input(%zd,%zd,%zd),filter=%zd,kernel(%zd,%zd)!!!\n",
+      printf("mismatch: batch=%zd,group=%zd,input(%zd,%zd,%zd),filter=%zd,kernel(%zd,%zd)!!!\n\n",
              BatchCount, GroupCount, InputChannels, InputHeight, InputWidth, FilterCount,
              KernelHeight, KernelWidth);
     } else {
-      printf("Output Matches!\n");
+      tests_passed += 1;
+      printf("Test PASS! %i/%i\n\n", tests_passed, tests_total);
     }
   }
 
@@ -231,85 +276,288 @@ class MlasHwachaDWCTest : public MlasTestBase {
              nullptr);
   }
 
-  void
-  ReferenceConv2D(
-      size_t BatchCount,
-      size_t GroupCount,
-      size_t InputChannels,
-      size_t InputHeight,
-      size_t InputWidth,
-      size_t FilterCount,
-      size_t KernelHeight,
-      size_t KernelWidth,
-      size_t PaddingLeftHeight,
-      size_t PaddingLeftWidth,
-      size_t DilationHeight,
-      size_t DilationWidth,
-      size_t StrideHeight,
-      size_t StrideWidth,
-      size_t OutputHeight,
-      size_t OutputWidth,
-      const int8_t* Input,
-      const int8_t* Filter,
-      const int32_t* Bias,
-      int8_t* Output) {
-    size_t InputSize = InputHeight * InputWidth;
-    size_t OutputSize = OutputHeight * OutputWidth;
-    size_t KernelSize = KernelHeight * KernelWidth;
-    size_t GroupSize = FilterCount * InputSize;
+    //void
+    //ReferenceConv2D(
+    //    size_t BatchCount,
+    //    size_t GroupCount,
+    //    size_t InputChannels,
+    //    size_t InputHeight,
+    //    size_t InputWidth,
+    //    size_t FilterCount,
+    //    size_t KernelHeight,
+    //    size_t KernelWidth,
+    //    size_t PaddingLeftHeight,
+    //    size_t PaddingLeftWidth,
+    //    size_t DilationHeight,
+    //    size_t DilationWidth,
+    //    size_t StrideHeight,
+    //    size_t StrideWidth,
+    //    size_t OutputHeight,
+    //    size_t OutputWidth,
+    //    const int8_t* Input,
+    //    const int8_t* Filter,
+    //    const int32_t* Bias,
+    //    int8_t* Output
+    //    )
+    //{
+    //    size_t InputSize = InputHeight * InputWidth;
+    //    size_t OutputSize = OutputHeight * OutputWidth;
+    //    size_t KernelSize = KernelHeight * KernelWidth;
 
-    size_t K = InputChannels * KernelSize;
-    size_t Im2ColElements = OutputSize * K;
+    //    size_t K = InputChannels * KernelSize;
+    //    size_t Im2ColElements = OutputSize * K;
 
-    for (size_t batch = 0; batch < BatchCount; batch++) {
-      for (size_t group = 0; group < GroupCount; group++) {
-        for (size_t channel = 0; channel < InputChannels; channel++) {
-          for (size_t out_row = 0; out_row < OutputHeight; out_row++) {
-            for (size_t out_col = channel; out_col < OutputWidth * InputChannels; out_col += InputChannels) {
-              size_t in_row = out_row * StrideHeight - PaddingLeftHeight;
+    //    for (size_t b = 0; b < BatchCount; b++) {
 
-              int32_t result = 0;
-              //if (params->bias) {
-              //result = Bias[group];
-              //}
+    //        const int8_t* filter = Filter;
+    //        const int32_t* bias = Bias;
 
-              for (size_t kernel_row = 0; kernel_row < KernelHeight; kernel_row++) {
-                size_t in_col = out_col * StrideWidth - PaddingLeftWidth;
+    //        for (size_t g = 0; g < GroupCount; g++) {
 
-                for (size_t kernel_col = channel; kernel_col < KernelWidth * FilterCount; kernel_col += FilterCount) {
-                  if (in_row >= 0 && in_row < InputHeight && in_col >= 0 && in_col < InputWidth * InputChannels) {
-                    result += Input[group * GroupSize + in_row * InputWidth * InputChannels + in_col] * Filter[group * GroupSize + kernel_row * KernelWidth * FilterCount + kernel_col];
-                  }
-                  //printf("Filter_IDX: %i; Filter_IDY:  %i; Input_IDX: %i;  Input_IDY: %i; Input Value: %i; Filter Value: %i; Result: %i; \n", kernel_col, kernel_row, in_col, in_row, Input[group*GroupSize + in_row*InputWidth*InputChannels + in_col], Filter[group*GroupSize + kernel_row*KernelWidth*FilterCount + kernel_col], result);
+    //            //
+    //            // Transform the image using IM2COL and invoke the GEMM.
+    //            //
 
-                  in_col += InputChannels;
-                }
+    //            int8_t* Im2Col = BufferIm2Col.GetBuffer(Im2ColElements);
+    //            int8_t* Im2ColOut = Im2Col;
 
-                in_row++;
-              }
+    //            for (size_t c = 0; c < InputChannels; c++) {
 
-              /*
-                            acc_t abs = result >= 0 ? result : -result;
-                            int divisor = 1 << params->output_scale;
-                            acc_t shifted = (abs + divisor/2) >> params->output_scale;
-                            if (result < 0) {
-                                shifted = -shifted;
+    //                for (size_t ky = 0; ky < KernelHeight; ky++) {
+
+    //                    for (size_t kx = 0; kx < KernelWidth; kx++) {
+
+    //                        for (size_t oh = 0; oh < OutputHeight; oh++) {
+
+    //                            size_t ih = oh * StrideHeight + ky * DilationHeight - PaddingLeftHeight;
+
+    //                            for (size_t ow = 0; ow < OutputWidth; ow++) {
+
+    //                                size_t iw = ow * StrideWidth + kx * DilationWidth - PaddingLeftWidth;
+
+    //                                *Im2ColOut++ = (ih < InputHeight && iw < InputWidth) ?
+    //                                    Input[ih * InputWidth + iw] : 0;
+    //                            }
+    //                        }
+    //                    }
+    //                }
+
+    //                Input += InputSize;
+    //            }
+
+    //    	MlasGemm(CblasNoTrans, CblasNoTrans, FilterCount, OutputSize, K, 1.0f,
+    //                filter, K, Im2Col, OutputSize, 0.0f, Output, OutputSize, threadpool);
+
+    //            //
+    //            // Apply the bias.
+    //            //
+
+    //            for (size_t f = 0; f < FilterCount; f++) {
+
+    //                float biasValue = *bias++;
+
+    //                for (size_t o = 0; o < OutputSize; o++) {
+    //                    *Output++ += biasValue;
+    //                }
+    //            }
+
+    //            filter += FilterCount * InputChannels * KernelSize;
+    //        }
+    //    }
+    //}
+  //void
+  //ReferenceConv2D(
+  //    size_t BatchCount,
+  //    size_t GroupCount,
+  //    size_t InputChannels,
+  //    size_t InputHeight,
+  //    size_t InputWidth,
+  //    size_t FilterCount,
+  //    size_t KernelHeight,
+  //    size_t KernelWidth,
+  //    size_t PaddingLeftHeight,
+  //    size_t PaddingLeftWidth,
+  //    size_t DilationHeight,
+  //    size_t DilationWidth,
+  //    size_t StrideHeight,
+  //    size_t StrideWidth,
+  //    size_t OutputHeight,
+  //    size_t OutputWidth,
+  //    const int8_t* Input,
+  //    const int8_t* Filter,
+  //    const int32_t* Bias,
+  //    int8_t* Output) {
+  //  size_t InputSize = InputHeight * InputWidth;
+  //  size_t OutputSize = OutputHeight * OutputWidth;
+  //  size_t KernelSize = KernelHeight * KernelWidth;
+  //  size_t GroupSize = FilterCount * InputSize;
+
+  //  size_t K = InputChannels * KernelSize;
+  //  size_t Im2ColElements = OutputSize * K;
+
+  //  for (size_t batch = 0; batch < BatchCount; batch++) {
+  //    for (size_t group = 0; group < FilterCount; group++) {
+  //      for (size_t channel = 0; channel < InputChannels; channel++) {
+  //        for (size_t out_row = 0; out_row < OutputHeight; out_row++) {
+  //          for (size_t out_col = channel; out_col < OutputWidth * InputChannels; out_col += InputChannels) {
+  //            size_t in_row = out_row * StrideHeight - PaddingLeftHeight;
+
+  //            int32_t result = 0;
+  //            //if (params->bias) {
+  //            //result = Bias[group];
+  //            //}
+
+  //            for (size_t kernel_row = 0; kernel_row < KernelHeight; kernel_row++) {
+  //              size_t in_col = out_col * StrideWidth - PaddingLeftWidth;
+
+  //              for (size_t kernel_col = channel; kernel_col < KernelWidth * FilterCount; kernel_col += FilterCount) {
+  //                if (in_row >= 0 && in_row < InputHeight && in_col >= 0 && in_col < InputWidth * InputChannels) {
+  //                  result += Input[group * GroupSize + in_row * InputWidth * InputChannels + in_col] * Filter[group * GroupSize + kernel_row * KernelWidth * FilterCount + kernel_col];
+  //                }
+  //                //printf("Filter_IDX: %i; Filter_IDY:  %i; Input_IDX: %i;  Input_IDY: %i; Input Value: %i; Filter Value: %i; Result: %i; \n", kernel_col, kernel_row, in_col, in_row, Input[group*GroupSize + in_row*InputWidth*InputChannels + in_col], Filter[group*GroupSize + kernel_row*KernelWidth*FilterCount + kernel_col], result);
+
+  //                in_col += InputChannels;
+  //              }
+
+  //              in_row++;
+  //            }
+
+  //            /*
+  //                          acc_t abs = result >= 0 ? result : -result;
+  //                          int divisor = 1 << params->output_scale;
+  //                          acc_t shifted = (abs + divisor/2) >> params->output_scale;
+  //                          if (result < 0) {
+  //                              shifted = -shifted;
+  //                          }
+  //                          */
+
+  //            if (result < -128) {
+  //              result = -128;
+  //            }
+
+  //            //int32_t shifted = ROUNDING_RIGHT_SHIFT(result, params->output_scale);
+
+  //            if (result > 127) {
+  //              result = 127;
+  //            }
+  //            //printf("Output_IDX: %i; Output_IDY: %i; Result Value: %i\n", out_col, out_row, result);
+  //            Output[group * GroupSize + out_row * OutputWidth * InputChannels + out_col] = result;
+  //            //printf("\n");
+  //          }
+  //        }
+  //      }
+  //    }
+  //  }
+  //}
+
+
+  void conv_dw(
+    int batch_size, int in_dim, int channels, 
+    int out_channels, int out_dim, 
+    int stride, int padding, int kernel_dim,
+    const elem_t* input,
+    const elem_t* weight,
+    const acc_t * bias,
+    elem_t* output,
+    bool relu, float output_scale)
+{
+    bool no_bias = bias == NULL;
+    for (int batch = 0; batch < batch_size; batch++) {
+        for (int channel = 0; channel < channels; channel++) {
+            for (int out_row = 0; out_row < out_dim; out_row++) {
+                for (int out_col = 0; out_col < out_dim; out_col++) {
+                    int in_row = out_row * stride - padding;
+
+                    acc_t result = 0;
+                    if (no_bias==false) {
+                        result = bias[channel];
+                    }
+
+                    for (int kernel_row = 0; kernel_row < kernel_dim; kernel_row++) {
+                        int in_col = out_col * stride - padding;
+
+                        for (int kernel_col = 0; kernel_col < kernel_dim; kernel_col++) {
+                            if (in_row >= 0 && in_row < in_dim && in_col >= 0 && in_col < in_dim) {
+                                //batch might be wrong
+                                //printf("Batch %i; Channel %i; In Row: %i; In Col: %i; Kernel Row: %i; Kernel Col: %i;\n", batch, channel, in_row, in_col, kernel_row, kernel_col);
+                                result += input[channels*in_dim*in_row + in_col*channels + channel] * weight[channels*kernel_dim*kernel_row + kernel_col*channels + channel];
+                                
+                                //printf("Multiplying weight and ipixel %d %d \n", weight[channels*kernel_dim*kernel_row + kernel_col*channels + channel], input[channels*in_dim*in_row + in_col*channels + channel]);
+                                //result += input[batch][channel][in_row][in_col] * weight[channel][kernel_row][kernel_col];
                             }
-                            */
 
-              if (result < 0) {
-                result = 0;
-              }
+                            in_col++;
+                        }
 
-              //int32_t shifted = ROUNDING_RIGHT_SHIFT(result, params->output_scale);
+                        in_row++;
+                    }
+                    //printf("\n");
 
-              if (result > 127) {
-                result = 127;
-              }
-              //printf("Output_IDX: %i; Output_IDY: %i; Result Value: %i\n", out_col, out_row, result);
-              Output[group * GroupSize + out_row * OutputWidth * InputChannels + out_col] = result;
-              //printf("\n");
+                    /*
+                    acc_t abs = result >= 0 ? result : -result;
+                    int divisor = 1 << params->output_scale;
+                    acc_t shifted = (abs + divisor/2) >> params->output_scale;
+                    if (result < 0) {
+                        shifted = -shifted;
+                    }
+                    */
+                    output[batch*out_dim*out_dim*channel + channels*out_dim*out_row + out_col*channels + channel] = saturate(result, output_scale, relu);
+                    //output[batch][channel][out_row][out_col] = saturate(result, output_scale, relu);
+                    //*(output + (b * out_dim * out_dim + orow * out_dim + ocol) * out_channels + och) =
+              
+                    // if (result < 0) {
+                    //     result = 0;
+                    // }
+                    
+                    // acc_t shifted = ROUNDING_RIGHT_SHIFT(result, params->output_scale);
+
+                    // if (shifted > elem_t_max) {
+                    //     shifted = elem_t_max;
+                    // }                    
+
+                    // output[batch][channel][out_row][out_col] = shifted;
+                }
             }
+        }
+    }
+}
+
+  void reference_conv(
+      int batch_size, int in_dim, int in_channels,
+      int out_channels, int out_dim,
+      int stride, int padding, int kernel_dim,
+      const elem_t* input,
+      const elem_t* weights,
+      const acc_t* bias,
+      elem_t* output,
+      bool relu, float output_scale) {
+    bool no_bias = bias == NULL;
+
+    for (int b = 0; b < batch_size; b++) {
+      for (int orow = 0; orow < out_dim; orow++) {
+        for (int ocol = 0; ocol < out_dim; ocol++) {
+          //printf("New output value\n");
+          for (int och = 0; och < out_channels; och++) {
+            acc_t opixel = no_bias ? 0 : bias[och];
+            //printf("New output channel\n");
+            for (int krow = 0; krow < kernel_dim; krow++) {
+              const int irow = orow * stride + krow - padding;
+
+              for (int kcol = 0; kcol < kernel_dim; kcol++) {
+                const int icol = ocol * stride + kcol - padding;
+
+                for (int kch = 0; kch < in_channels; kch++) {
+                  elem_t ipixel = irow < 0 || irow >= in_dim || icol < 0 || icol >= in_dim ? 0 : *(input + (b * in_dim * in_dim + irow * in_dim + icol) * in_channels + kch);
+
+                  elem_t weight = *(weights + (krow * kernel_dim * in_channels + kcol * in_channels + kch) * out_channels + och);
+                  printf("Multiplying weight and ipixel %d %d\n", weight, ipixel);
+                  opixel += weight * ipixel;
+                }
+              }
+            }
+          // printf("Value before saturate %d\n", opixel);
+            *(output + (b * out_dim * out_dim + orow * out_dim + ocol) * out_channels + och) =
+                saturate(opixel, output_scale, relu);
           }
         }
       }
@@ -336,12 +584,85 @@ class MlasHwachaDWCTest : public MlasTestBase {
 
     // Depthwise convolutions.
     printf("Avi's Depthwise Tests\n");
-    Test(1, 1, 1, 5, 5, 1, 2, 2, 0, 0, 0, 0, 1, 1, 1, 1);  //Input Channels 2; Filter Count 2;
-    Test(1, 1, 1, 5, 5, 1, 3, 3, 0, 0, 0, 0, 1, 1, 1, 1);  //Input Channels 2; Filter Count 2;
-    Test(1, 1, 1, 5, 5, 1, 4, 4, 0, 0, 0, 0, 1, 1, 1, 1);  //Input Channels 2; Filter Count 2;
+    
+    // Parameters
+    // Batch Count, Group Count
+    // Input Channels, Input Height, Input Width
+    // Filter Count, Kernel Height, Kernel Width
+    // Padding Left Height, Padding Left Width, Padding Right Height, Padding Right Width
+    // Dilation Height, Dilation Width (NOT USED IN KERNEL) 
+    // Stride Height, Stride Width
+   
+    //Input Channels 1; Filter Count 1;
+    Test(1, 1, 
+	 1, 5, 5, 
+	 1, 2, 2, 
+	 0,0,0,0,
+	 1, 1, 
+	 1, 1);  
 
-    Test(1, 1, 2, 5, 5, 2, 2, 2, 0, 0, 0, 0, 1, 1, 1, 1);  //Input Channels 2; Filter Count 2;
-    Test(1, 1, 3, 5, 5, 3, 2, 2, 0, 0, 0, 0, 1, 1, 1, 1);  //Input Channels 2; Filter Count 2;
+  //   //Input Channels 1; Filter Count 1;
+//    Test(1, 1, 
+//         1, 5, 5, 
+//	 1, 3, 3, 
+//	 0, 0, 0, 0, 
+//	 1, 1,
+//	 1, 1);  
+//    
+//    
+//    Test(1, 1, 
+//   	 1, 5, 5, 
+//	 1, 4, 4, 
+//	 0, 0, 0, 0, 
+//	 1, 1, 
+//	 1, 1);  
+//
+//    Test(1, 1, 
+//        5, 224, 224, 
+//      5, 8, 8, 
+//      0, 0, 0, 0, 
+//      1, 1, 
+//      1, 1);  
+//    
+//    //Input Channels 2; Filter Count 2;
+//    Test(1, 1, 
+//         2, 6, 6, 
+//	 2, 2, 2, 
+//	 1,1,1,1,
+//	 0, 0, 
+//	 1, 1); 
+//    
+//  //   //Input Channels 3; Filter Count 3;
+//    Test(1, 1, 
+//	 3, 5, 5, 
+//	 3, 2, 2, 
+//	 0, 0, 0, 0, 
+//	 1, 1, 
+//	 1, 1); 
+//    
+//  //   // Conv 2_1 Layer;
+//    Test(1, 1, 
+//	 32, 112, 112, 
+//	 32, 3, 3, 
+//	 1, 1, 1, 1, 
+//	 1, 1, 
+//	 1, 1); 
+//    
+//  //   // Conv 2_2 Layer;
+//    Test(1, 1, 
+//	 96, 112, 112, 
+//	 96, 3, 3, 
+//	 1, 1, 1, 1, 
+//	 1, 1, 
+//	 2, 2); 
+//
+//  //   // Conv 3_1 Layer
+//    Test(1, 1, 
+//         144, 56, 56,
+//	 144, 3, 3, 
+//	 1, 1, 1, 1, 
+//	 1, 1, 
+//	 1, 1);
 
     //for (unsigned i = 16; i < 256; i <<= 1) {
 
