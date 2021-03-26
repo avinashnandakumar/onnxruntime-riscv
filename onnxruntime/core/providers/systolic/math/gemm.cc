@@ -50,9 +50,13 @@ static void GemmBroadcastBias(int64_t M, int64_t N, float beta,
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> Add Gemm op when using FP gemmini
+=======
+
+>>>>>>> eef5eefc5527a03a01afc079fd7d52aad44f2075
 template <>
 Status Gemm<float>::Compute(OpKernelContext* context) const {
   const auto* A = context->Input<Tensor>(0);
@@ -70,8 +74,11 @@ Status Gemm<float>::Compute(OpKernelContext* context) const {
   int64_t N = helper.N();
   int64_t K = helper.K();
 
+<<<<<<< HEAD
   //printf("M, N, K: %d %d %d\n", (int) M, (int) N, (int) K);
   
+=======
+>>>>>>> eef5eefc5527a03a01afc079fd7d52aad44f2075
   auto Y = context->Output(0, {M, N});
 
   // if input is empty tensor, return as nothing need to be calculated and we've set the shape for the output
@@ -117,4 +124,8 @@ Status Gemm<float>::Compute(OpKernelContext* context) const {
 }  // namespace systolic
 }  // namespace onnxruntime
 
+<<<<<<< HEAD
 #endif
+=======
+#endif
+>>>>>>> eef5eefc5527a03a01afc079fd7d52aad44f2075

@@ -41,8 +41,8 @@ void HwachaDepthWiseConv(const size_t batch_size,
   setvcfg(0, 1, 4, 1);
   int count = 0;
   int consumed = setvlen(channels);
-  fprintf(stdout, "Consumed length: %i\n", consumed);
-  fprintf(stdout, "Real Multiplier: %f\n", real_multiplier);
+  // fprintf(debug_out, "Consumed length: %i\n", consumed);
+  // fprintf(debug_out, "Real Multiplier: %f\n", real_multiplier);
   const float min = -128.0;
   const float max = 127.0;
 
