@@ -6,6 +6,8 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <cstdlib>
+#include <ctime>
 #include <systolic/systolic_provider_factory.h>
 #include <onnxruntime_cxx_api.h>
 #ifdef FOR_FIRESIM
@@ -308,115 +310,160 @@ int main(int argc, char* argv[]) {
     printf("ERROR: Graph has multiple output nodes defined. Please specify an output manually.\n");
     return -1;
   }
-  
-  if (has_suffix(cmd["image"].as<std::string>(), ".txt"))
-  {
-    int topFiveRight = 0;
-    int topOneRight = 0;
-    int totalCases = 0;
-    // Batch inference
-    std::ifstream batch_in(cmd["image"].as<std::string>());
-    std::string path;
 
-    int startLine = 1;
-    int endLine = -1;
+  //Loading Random Inputs
+  //size_t input_tensor_size = 3 * 224 * 224;  // simplify ... using known dim values to calculate size
+                                             // use OrtGetTensorShapeElementCount() to get official size!
+  size_t batch, channels, height, width;
+  batch = input_node_dims[0];
+  channels = input_node_dims[1];
+  height = input_node_dims[2];
+  width = input_node_dims[3];
 
-    if (cmd.count("range")) {
-      std::vector<int> startEndPair = cmd["range"].as<std::vector<int>>();
-      assert(startEndPair.size() >= 1 && startEndPair.size() <= 2 && "Expected range in form of 'start, end'");
-      startLine = startEndPair[0];
-      if (startEndPair.size() == 2) {
-        endLine = startEndPair[1];
-      }
-    }
+  size_t input_tensor_size = batch * channels * height * width; 
+  printf("Loading Random Inputs\n");
 
-    printf("Batch processing lines %d - %d\n", startLine, endLine);
+  int dimX, dimY, numChannels;
+  std::vector<float> input_tensor_values(input_tensor_size);
 
-    int curLine = 0;
-    while (std::getline(batch_in, path)) {
-      if (path.empty()) continue;
-      curLine += 1;
-      if (curLine < startLine || (endLine != -1 && curLine > endLine)) {
-        continue;
-      }
+  float value; 
+  srand (static_cast <unsigned> (time(0)));
 
-      totalCases += 1;
-      // The most likely prediction is at the end of the list
-      std::vector<int> topFiveOut = inferOnImage(path, cmd["preprocess"].as<std::string>(),
-                  session, session2, input_node_names, input_node_dims, output_node_names);
-      int expected_label = getLabelOfBatchImage(path);
-      assert(expected_label < 1000 && "Expected label out of bounds");
-      printf("Expected was %d - %s\n", expected_label, imagenet_labels[expected_label]);
-
-      for (size_t i = 0; i < topFiveOut.size(); i++) {
-        if (topFiveOut[i] == expected_label) {
-          topFiveRight += 1;
-          topOneRight += ((i + 1) == topFiveOut.size());
-          break;
+  for (int c = 0; c < channels; c++)
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            value = -128 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(127+128)));
+            input_tensor_values[((c)*channels + i)*height + j] = value;  
         }
-      }
-
-      if (curLine % 100 == 0) {
-        printf("Checkpoint! Processed up to line %d\n", curLine);
-        printf("Top five right: %d/%d\n", topFiveRight, totalCases);
-        printf("Top one right: %d/%d\n", topOneRight, totalCases);
-      }
     }
+  
+  printf("First few image values %f %f %f\n", input_tensor_values[0], input_tensor_values[1], input_tensor_values[2]);
+
+
+  auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+  Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, input_tensor_values.data(), input_tensor_size, input_node_dims.data(), 4);
+  assert(input_tensor.IsTensor());
+
+  
+
+  // score model & input tensor, get back output tensor
+  printf("Benchmark Start\n");
+  auto pre_inference_cycles = read_cycles();
+  auto output_tensors = session.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
+//   printf("Second Inference\n");
+//   auto output_tensors2 = session2.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
+  auto post_inference_cycles = read_cycles();
+  printf("Benchmark Done Cycles: %lu\n", post_inference_cycles-pre_inference_cycles);
+  
+  
+//   if (has_suffix(cmd["image"].as<std::string>(), ".txt"))
+//   {
+//     int topFiveRight = 0;
+//     int topOneRight = 0;
+//     int totalCases = 0;
+//     // Batch inference
+//     std::ifstream batch_in(cmd["image"].as<std::string>());
+//     std::string path;
+
+//     int startLine = 1;
+//     int endLine = -1;
+
+//     if (cmd.count("range")) {
+//       std::vector<int> startEndPair = cmd["range"].as<std::vector<int>>();
+//       assert(startEndPair.size() >= 1 && startEndPair.size() <= 2 && "Expected range in form of 'start, end'");
+//       startLine = startEndPair[0];
+//       if (startEndPair.size() == 2) {
+//         endLine = startEndPair[1];
+//       }
+//     }
+
+//     printf("Batch processing lines %d - %d\n", startLine, endLine);
+
+//     int curLine = 0;
+//     while (std::getline(batch_in, path)) {
+//       if (path.empty()) continue;
+//       curLine += 1;
+//       if (curLine < startLine || (endLine != -1 && curLine > endLine)) {
+//         continue;
+//       }
+
+//       totalCases += 1;
+//       // The most likely prediction is at the end of the list
+//       std::vector<int> topFiveOut = inferOnImage(path, cmd["preprocess"].as<std::string>(),
+//                   session, session2, input_node_names, input_node_dims, output_node_names);
+//       int expected_label = getLabelOfBatchImage(path);
+//       assert(expected_label < 1000 && "Expected label out of bounds");
+//       printf("Expected was %d - %s\n", expected_label, imagenet_labels[expected_label]);
+
+//       for (size_t i = 0; i < topFiveOut.size(); i++) {
+//         if (topFiveOut[i] == expected_label) {
+//           topFiveRight += 1;
+//           topOneRight += ((i + 1) == topFiveOut.size());
+//           break;
+//         }
+//       }
+
+//       if (curLine % 100 == 0) {
+//         printf("Checkpoint! Processed up to line %d\n", curLine);
+//         printf("Top five right: %d/%d\n", topFiveRight, totalCases);
+//         printf("Top one right: %d/%d\n", topOneRight, totalCases);
+//       }
+//     }
     
-    printf("Finished batch\n");
-    printf("Top five right: %d/%d\n", topFiveRight, totalCases);
-    printf("Top one right: %d/%d\n", topOneRight, totalCases);
-  } else {
+//     printf("Finished batch\n");
+//     printf("Top five right: %d/%d\n", topFiveRight, totalCases);
+//     printf("Top one right: %d/%d\n", topOneRight, totalCases);
+//   } else {
     
-    // pid_t pid;
+//     // pid_t pid;
 
-    // switch ( pid = fork() ) {
-    // case -1:
-    //   printf("Error in fork");
+//     // switch ( pid = fork() ) {
+//     // case -1:
+//     //   printf("Error in fork");
 
-    // case 0:
-    //   printf("Child process: My process id = %i\n", getpid());
-    //   printf("Child process: Value returned by fork() = %i \n", pid);
-    //   // cout << "Child process: Value returned by fork() = " << pid << endl;
-    //   printf("Inference 1\n");
-    //   inferOnImage(cmd["image"].as<std::string>(), cmd["preprocess"].as<std::string>(),
-    //               session, input_node_names, input_node_dims, output_node_names);
+//     // case 0:
+//     //   printf("Child process: My process id = %i\n", getpid());
+//     //   printf("Child process: Value returned by fork() = %i \n", pid);
+//     //   // cout << "Child process: Value returned by fork() = " << pid << endl;
+//     //   printf("Inference 1\n");
+//     //   inferOnImage(cmd["image"].as<std::string>(), cmd["preprocess"].as<std::string>(),
+//     //               session, input_node_names, input_node_dims, output_node_names);
 
-    //   return 0;
-
-    
-    // default:
-    //   printf("Parent process. My process id =  %i\n", getpid());
-    //   //cout << "Parent process. My process id = " << getpid() << endl;
-    //   //cout << "Parent process. Value returned by fork() = " << pid << endl;
-    //   printf("Inference 2\n");
-    //   inferOnImage(cmd["avi"].as<std::string>(), cmd["preprocess"].as<std::string>(),
-    //               session, input_node_names, input_node_dims, output_node_names);
-
-    // if (wait(NULL) == -1) printf("Error in wait");
-    // }
-
-    //pthread_t threads[2];
-    //int rc;
-    //int i; 
-
-    //for( i = 0; i < 2; i++ ) {
-    //  printf("main() : creating thread, %i\n", i);
-    //  rc = pthread_create(&threads[i], NULL, PrintHello, (void *) i);
-    //  
-    //  if (rc) {
-    //     printf("Error:unable to create thread, %i \n", rc);
-    //     exit(-1);
-    //  }
-    //}
-
-    inferOnImage(cmd["image"].as<std::string>(), cmd["preprocess"].as<std::string>(),
-                   session, session2, input_node_names, input_node_dims, output_node_names);
-    
-
+//     //   return 0;
 
     
-  }
+//     // default:
+//     //   printf("Parent process. My process id =  %i\n", getpid());
+//     //   //cout << "Parent process. My process id = " << getpid() << endl;
+//     //   //cout << "Parent process. Value returned by fork() = " << pid << endl;
+//     //   printf("Inference 2\n");
+//     //   inferOnImage(cmd["avi"].as<std::string>(), cmd["preprocess"].as<std::string>(),
+//     //               session, input_node_names, input_node_dims, output_node_names);
+
+//     // if (wait(NULL) == -1) printf("Error in wait");
+//     // }
+
+//     //pthread_t threads[2];
+//     //int rc;
+//     //int i; 
+
+//     //for( i = 0; i < 2; i++ ) {
+//     //  printf("main() : creating thread, %i\n", i);
+//     //  rc = pthread_create(&threads[i], NULL, PrintHello, (void *) i);
+//     //  
+//     //  if (rc) {
+//     //     printf("Error:unable to create thread, %i \n", rc);
+//     //     exit(-1);
+//     //  }
+//     //}
+
+//     inferOnImage(cmd["image"].as<std::string>(), cmd["preprocess"].as<std::string>(),
+//                    session, session2, input_node_names, input_node_dims, output_node_names);
+    
+
+
+    
+//   }
  
   return 0;
 }
