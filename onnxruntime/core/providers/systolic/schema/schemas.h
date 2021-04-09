@@ -4,6 +4,8 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include "core/common/optional.h"
+#include "core/framework/utils.h"
 
 namespace ONNX_NAMESPACE {
 void convPoolShapeInference(
@@ -21,6 +23,8 @@ using ONNX_NAMESPACE::AttributeProto;
 using ONNX_NAMESPACE::InferenceContext;
 using ONNX_NAMESPACE::OpSchema;
 using ONNX_NAMESPACE::OPTIONAL_VALUE;
+using ONNX_NAMESPACE::TensorProto;
+using ONNX_NAMESPACE::TensorShapeProto;
 using ONNX_NAMESPACE::TypeProto;
 
 #define ONNX_SYSTOLIC_OPERATOR_SCHEMA(name) \
@@ -41,9 +45,9 @@ using ONNX_NAMESPACE::TypeProto;
       op_schema_register_once##name##Counter) ONNX_UNUSED =                      \
       schema_func(ONNX_NAMESPACE::OpSchema(#name, __FILE__, __LINE__))
 
-std::vector<int64_t> nhwcConvPoolShapeInference(
-    const ONNX_NAMESPACE::TensorShapeProto* in1_shape,
-    const ONNX_NAMESPACE::TensorShapeProto* in2_shape,
+optional<TensorShapeProto> nhwcConvPoolShapeInference(
+    const TensorShapeProto* in1_shape,
+    const TensorShapeProto* in2_shape,
     std::vector<int64_t>& dilations,
     std::vector<int64_t>& strides,
     std::vector<int64_t>& pads,
@@ -54,16 +58,20 @@ std::vector<int64_t> nhwcConvPoolShapeInference(
     bool require_kernel_shape /*whether we need the kernel_shape attr (for pool) */) {
   // we need the first input shape for this inference.
   if (!in1_shape) {
-    return {};
+    // This can happen if shape inference function is not defined for an upstream node
+    // E.g. for fused nodes ORT currently does not apply any shape inference
+    fprintf(stderr, "Warning: input shape to nhwc convpool shape inference not found.\n");
+    return nullopt;
   }
 
   // if kernel shape is an input (and not attribute)
   // we need the shape of the second input.
   if (!require_kernel_shape && !in2_shape) {
-    return {};
+    //fprintf(stderr, "Returning null since in2 shape not provided. Bad model?\n");
+    return nullopt;
   }
 
-  auto input_shape = *in1_shape;
+  const TensorShapeProto& input_shape = *in1_shape;
   if (input_shape.dim_size() < 2) {
     fail_shape_inference("Input tensor must have atleast 2 dimensions");
   }
@@ -72,16 +80,24 @@ std::vector<int64_t> nhwcConvPoolShapeInference(
     fail_shape_inference("More than 4 input dims to qlinearconv_nhwc");
   }
 
-  // first dim is the batch axis and the next is the number of channels.
+  // The input is given to us in NHWC format
   size_t n_input_dims = static_cast<size_t>(input_shape.dim_size() - 2);
 
-  // Reshape input to NCHW format for shape inference logic
-  int input_shape_N = input_shape.dim(0).dim_value();
-  int input_shape_H = input_shape.dim(1).dim_value();
-  int input_shape_W = input_shape.dim(2).dim_value();
-  int input_shape_C = input_shape.dim(3).dim_value();
+  // We convert the input shape to NCHW format for inference purposes
+  TensorShapeProto input_shape_nchw_form;
+  *input_shape_nchw_form.add_dim() = input_shape.dim(0);
+  *input_shape_nchw_form.add_dim() = input_shape.dim(3);
+  *input_shape_nchw_form.add_dim() = input_shape.dim(1);
+  *input_shape_nchw_form.add_dim() = input_shape.dim(2);
 
-  int input_shape_nchw_form[4] = {input_shape_N, input_shape_C, input_shape_H, input_shape_W};
+  // Our weights are given to us in HWIO form. We fill this in later
+  TensorShapeProto second_input_shape_oihw_form;
+  if (in2_shape && in2_shape->dim_size() == 4) {
+    *second_input_shape_oihw_form.add_dim() = in2_shape->dim(3);
+    *second_input_shape_oihw_form.add_dim() = in2_shape->dim(2);
+    *second_input_shape_oihw_form.add_dim() = in2_shape->dim(0);
+    *second_input_shape_oihw_form.add_dim() = in2_shape->dim(1);
+  }
 
   // Only MaxPool and Conv support dilation. For
   // simplicity of the code, we just treat the rest of them as having all-1s
@@ -109,22 +125,11 @@ std::vector<int64_t> nhwcConvPoolShapeInference(
   } else if (require_kernel_shape) {
     fail_shape_inference("Attribute kernel_shape must be specified");
   } else {
-    auto second_input_shape = *in2_shape;
-    if (second_input_shape.dim_size() != 4) {
-      fail_shape_inference("Not 4 dimensions for weights of qlinearconv_nhwc");
-    }
-    int second_input_kH = second_input_shape.dim(0).dim_value();
-    int second_input_kW = second_input_shape.dim(1).dim_value();
-    int second_input_C_by_group = second_input_shape.dim(2).dim_value();
-    int second_input_M = second_input_shape.dim(3).dim_value();
-
-    int second_input_shape_oihw_form[4] = {second_input_M, second_input_C_by_group, second_input_kH, second_input_kW};
-
-    for (int i = 2; i < second_input_shape.dim_size(); ++i) {
-      if (!second_input_shape.dim(i - 2).has_dim_value()) {
-        fail_shape_inference("Missing dim for qlinearconv_nhwc");
+    for (int i = 2; i < second_input_shape_oihw_form.dim_size(); ++i) {
+      if (!second_input_shape_oihw_form.dim(i).has_dim_value()) {
+        return nullopt;
       }
-      kernel_shape.push_back(second_input_shape_oihw_form[i]);
+      kernel_shape.push_back(second_input_shape_oihw_form.dim(i).dim_value());
     }
   }
 
@@ -146,8 +151,10 @@ std::vector<int64_t> nhwcConvPoolShapeInference(
         int64_t residual = 0;
         int64_t stride = strides[i];
         if (stride > 1) {
-          assert(input_shape.dim(2 + i).has_dim_value() && 2 + i < 4 && "Accessing beyond vector size");
-          residual = input_shape_nchw_form[2 + i];
+          if (!input_shape_nchw_form.dim(2 + i).has_dim_value()) {
+            continue;
+          }
+          residual = input_shape_nchw_form.dim(2 + i).dim_value();
           while (residual >= stride) {
             residual -= stride;
           }
@@ -168,27 +175,29 @@ std::vector<int64_t> nhwcConvPoolShapeInference(
     }
   }
 
-  std::vector<int> output_shape;
+  TensorShapeProto output_shape;
 
   if (require_kernel_shape) {
     // add the first two dimensions from the input.
-    output_shape.push_back(input_shape.dim(0).dim_value());
-    output_shape.push_back(input_shape.dim(3).dim_value());
+    *output_shape.add_dim() = input_shape_nchw_form.dim(0);
+    *output_shape.add_dim() = input_shape_nchw_form.dim(1);
   } else {
-    output_shape.push_back(input_shape.dim(0).dim_value());
-    auto second_input_shape = *in2_shape;
-    if (second_input_shape.dim_size() < 1) {
+    *output_shape.add_dim() = input_shape_nchw_form.dim(0);
+    if (second_input_shape_oihw_form.dim_size() < 1) {
       fail_shape_inference("Second input tensor has wrong dimension");
     }
-    output_shape.push_back(second_input_shape.dim(3).dim_value());
+    *output_shape.add_dim() = second_input_shape_oihw_form.dim(0);
   }
 
   int kernel_shape_size = static_cast<int>(kernel_shape.size());
   for (int i = 0; i < kernel_shape_size; ++i) {
-    assert(input_shape.dim(2 + i).has_dim_value() && 2 + i < 4 && "Overflow at 177");
+    auto newdim = output_shape.add_dim();
+    if (!input_shape_nchw_form.dim(2 + i).has_dim_value()) {
+      continue;
+    }
 
     // how big is the input, including padding
-    int64_t effective_input_size = input_shape_nchw_form[2 + i];
+    int64_t effective_input_size = input_shape_nchw_form.dim(2 + i).dim_value();
     effective_input_size += pads[i];
     effective_input_size += pads[i + kernel_shape_size];
 
@@ -204,19 +213,19 @@ std::vector<int64_t> nhwcConvPoolShapeInference(
           (effective_input_size - effective_kernel_shape[i]) / strides[i];
 
     // add in the initial position
-    output_shape.push_back(1 + strided_kernel_positions);
+    newdim->set_dim_value(1 + strided_kernel_positions);
   }
 
-  if (output_shape.size() != 4) {
+  if (output_shape.dim_size() != 4) {
     fail_shape_inference("More than 4 output dimensions for qlinearconv_nhwc");
   }
 
-  int output_shape_N = output_shape[0];
-  int output_shape_C = output_shape[1];
-  int output_shape_H = output_shape[2];
-  int output_shape_W = output_shape[3];
-
-  return {output_shape_N, output_shape_H, output_shape_W, output_shape_C};
+  TensorShapeProto output_shape_nhwc;
+  *output_shape_nhwc.add_dim() = output_shape.dim(0);
+  *output_shape_nhwc.add_dim() = output_shape.dim(2);
+  *output_shape_nhwc.add_dim() = output_shape.dim(3);
+  *output_shape_nhwc.add_dim() = output_shape.dim(1);
+  return optional<TensorShapeProto>(output_shape_nhwc);
 }
 
 void dump_vector(const std::vector<int64_t>& v, const std::string& title) {
@@ -246,20 +255,13 @@ void nhwcConvPoolShapeInference(InferenceContext& ctx, int x_idx, int w_idx) {
   const auto* auto_pad_attr = ctx.getAttribute("auto_pad");
   std::string auto_pad = auto_pad_attr ? auto_pad_attr->s() : "NOTSET";
 
-  std::vector<int64_t> conv_output_shape = nhwcConvPoolShapeInference(
+  optional<TensorShapeProto> conv_output_shape = nhwcConvPoolShapeInference(
       hasInputShape(ctx, input1Idx) ? &in_shape : nullptr,
       hasInputShape(ctx, input2Idx) ? &in2_shape : nullptr,
       dilations, strides, pads, kernel_shape, auto_pad,
       /*ceil_mode= */ 0, /*use_dilation= */ true, /*require_kernel_shape= */ false);
 
-  if (conv_output_shape.size() > 0) {
-    auto output_shape =
-        ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
-    output_shape->clear_dim();
-    for (int64_t dim : conv_output_shape) {
-      output_shape->add_dim()->set_dim_value(dim);
-    }
-
+  if (conv_output_shape) {
     const auto* has_maxpool_attr = ctx.getAttribute("maxpool");
     if (has_maxpool_attr && has_maxpool_attr->i() == 1) {
       //printf("Has pool attribute");
@@ -280,19 +282,18 @@ void nhwcConvPoolShapeInference(InferenceContext& ctx, int x_idx, int w_idx) {
       const auto* pool_auto_pad_attr = ctx.getAttribute("pool_auto_pad");
       std::string pool_auto_pad = pool_auto_pad_attr ? pool_auto_pad_attr->s() : "NOTSET";
 
-      auto immutable_output_shape = ctx.getOutputType(0)->mutable_tensor_type()->shape();
-      std::vector<int64_t> pool_output_shape = nhwcConvPoolShapeInference(
-          &immutable_output_shape, /*in2_shape= */ nullptr,
+      optional<TensorShapeProto> pool_output_shape = nhwcConvPoolShapeInference(
+          &*(conv_output_shape), /*in2_shape= */ nullptr,
           pool_dilations, pool_strides, pool_pads, pool_kernel_shape, pool_auto_pad,
           /*ceil_mode= */ 0, /*use_dilation= */ false, /*require_kernel_shape= */ true);
 
       // dump_vector(conv_output_shape, "Shape after conv");
       // dump_vector(pool_output_shape, "Shape after pool");
-
-      output_shape->clear_dim();
-      for (int64_t dim : pool_output_shape) {
-        output_shape->add_dim()->set_dim_value(dim);
+      if (pool_output_shape.has_value()) {
+        ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->CopyFrom(pool_output_shape.value());
       }
+    } else {
+      ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->CopyFrom(conv_output_shape.value());
     }
   }
 }
@@ -311,8 +312,22 @@ void RegisterSystolicTrainingSchemas() {
           "T",
           {"tensor(float16)", "tensor(float)", "tensor(double)"},
           "Constrain input and output types to float tensors.");
-}
 
+  ONNX_SYSTOLIC_OPERATOR_SCHEMA(MaxPoolGrad_nhwc)
+      .SinceVersion(9)
+      .Input(0, "dY", "Gradient of output, Y", "T")
+      .Input(1, "Indices", "Indices tensor from max pooling across the input tensor.", "I")
+      .Output(0, "dX", "Gradient of input, X", "T")
+      .AllowUncheckedAttributes()
+      .TypeConstraint(
+          "T",
+          {"tensor(float16)", "tensor(float)", "tensor(double)"},
+          "Constrain input and output types to float tensors.")
+      .TypeConstraint(
+          "I",
+          {"tensor(int64)"},
+          "Constrain index tensor to int64");
+}
 
 void RegisterSystolicSchemas() {
 #ifdef ENABLE_TRAINING
@@ -398,7 +413,7 @@ void RegisterSystolicSchemas() {
         nhwcConvPoolShapeInference(ctx, x_idx, w_idx);
       });
 
- ONNX_SYSTOLIC_OPERATOR_SCHEMA(Conv_nhwc)
+  ONNX_SYSTOLIC_OPERATOR_SCHEMA(Conv_nhwc)
       .SinceVersion(1)
       .SetDoc("Internal node for NHWC layout optimization. Also supports relu/maxpool Used with Systolic.")
       .Input(0, "X", "", "T", OpSchema::Single, /*is_homogeneous= */ true, /*min_arity= */ 1, OpSchema::Differentiable)
@@ -428,7 +443,7 @@ void RegisterSystolicSchemas() {
       .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
         int x_idx = 0;
         int w_idx = 1;
-        
+
         auto x_type = ctx.getInputType(x_idx);
         auto w_type = ctx.getInputType(w_idx);
         if (nullptr == x_type || nullptr == w_type ||
@@ -436,9 +451,70 @@ void RegisterSystolicSchemas() {
             w_type->value_case() != TypeProto::kTensorType) {
           fail_type_inference("inputs are expected to have tensor type.");
         }
-      
+
         propagateElemTypeFromInputToOutput(ctx, 0, 0);
         nhwcConvPoolShapeInference(ctx, x_idx, w_idx);
+      });
+
+  ONNX_SYSTOLIC_OPERATOR_SCHEMA(MaxPool_nhwc)
+      .SinceVersion(1)
+      .SetDoc("Internal node for NHWC training.")
+      .Input(0, "X", "", "T", OpSchema::Single, true, 1, OpSchema::Differentiable)
+      .Output(0, "Y", "", "T", OpSchema::Single, true, 1, OpSchema::Differentiable)
+      .Output(1, "Y", "", "I", OpSchema::Optional, true, 1, OpSchema::NonDifferentiable)
+      .Attr("auto_pad", "", AttributeProto::STRING, std::string("NOTSET"))
+      .TypeConstraint("T", {"tensor(int8)", "tensor(uint8)", "tensor(float16)", "tensor(float)", "tensor(double)"}, "")
+      .TypeConstraint("I", {"tensor(int64)"}, "Constrain index tensor to int64")
+      .Attr("kernel_shape", "", AttributeProto::INTS)
+      .Attr("dilations", "", AttributeProto::INTS, OPTIONAL_VALUE)
+      .Attr("strides", "", AttributeProto::INTS, OPTIONAL_VALUE)
+      .Attr("pads", "", AttributeProto::INTS, OPTIONAL_VALUE)
+      .Attr("ceil_mode", "", AttributeProto::INT, static_cast<int64_t>(0))
+      .Attr("auto_pad", "", AttributeProto::STRING, std::string("NOTSET"))
+      .Attr("storage_order", "", AttributeProto::INT, static_cast<int64_t>(0))
+      .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+//        fprintf(stderr, "CALLED INTO MAXPOOL SHAPE INFERENCE\n");
+        propagateElemTypeFromInputToOutput(ctx, 0, 0);
+        if (ctx.getNumOutputs() > 1) {
+          // MaxPool with two outputs case.
+          auto output_type = ctx.getOutputType(1);
+          if (output_type->value_case() == TypeProto::kTensorType ||
+              output_type->value_case() == TypeProto::VALUE_NOT_SET) {
+            output_type->mutable_tensor_type()->set_elem_type(TensorProto::INT64);
+          }
+        }
+        auto in_shape = ctx.getInputType(0)->tensor_type().shape();
+
+        std::vector<int64_t> dilations;
+        std::vector<int64_t> strides;
+        std::vector<int64_t> pads;
+        std::vector<int64_t> kernel_shape;
+        getRepeatedAttribute(ctx, "dilations", dilations);
+        getRepeatedAttribute(ctx, "strides", strides);
+        getRepeatedAttribute(ctx, "pads", pads);
+        getRepeatedAttribute(ctx, "kernel_shape", kernel_shape);
+        auto ceil_mode = getAttribute(ctx, "ceil_mode", 0);
+
+        const auto* auto_pad_attr = ctx.getAttribute("auto_pad");
+        std::string auto_pad = auto_pad_attr ? auto_pad_attr->s() : "NOTSET";
+
+        optional<TensorShapeProto> pool_output_shape = nhwcConvPoolShapeInference(
+            hasInputShape(ctx, 0) ? &in_shape : nullptr,
+            nullptr,
+            dilations, strides, pads, kernel_shape, auto_pad,
+            ceil_mode, /*use_dilation= */ true, /*require_kernel_shape= */ true);
+
+        if (pool_output_shape) {
+          auto output_shape =
+              ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
+          output_shape->CopyFrom(pool_output_shape.value());
+
+          if (ctx.getNumOutputs() > 1) {
+            auto second_output_shape =
+                ctx.getOutputType(1)->mutable_tensor_type()->mutable_shape();
+            second_output_shape->CopyFrom(*output_shape);
+          }
+        }
       });
 }
 

@@ -29,6 +29,7 @@ static std::unordered_map<std::string, std::unordered_set<size_t>>
     STOP_GRADIENT_EDGES = {
         {"Not", {0}},
         {"And", {0, 1}},
+        {"BatchNormalization", {3, 4}},
         {"Or", {0, 1}},
         {"Xor", {0, 1}},
         {"Equal", {0, 1}},
@@ -47,7 +48,6 @@ static std::unordered_map<std::string, std::unordered_set<size_t>>
         {"Size", {0}},
         {"Reshape", {1}},
         {"Expand", {1}},
-        {"TrainableDropout", {1}},
         {"Dropout", {1, 2}},
         {"Slice", {1, 2, 3, 4}},
         {"SparseSoftmaxCrossEntropy", {1, 2}},

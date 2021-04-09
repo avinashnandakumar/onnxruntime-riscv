@@ -15,6 +15,9 @@
 #include <sys/mman.h>
 #endif
 
+#include <pthread.h>
+
+
 #ifdef USE_CUSTOM_OP_LIBRARY
 #include "custom_op_library.h"
 #endif
@@ -38,6 +41,13 @@ int getLabelOfBatchImage(const std::string &path) {
   return std::stoi(path.substr(secondlastidx + 1, (lastidx - secondlastidx - 1)));
 }
 
+void *PrintHello(void *threadid) {
+   long tid;
+   tid = (long) threadid;
+   printf("Hello World! Thread ID, %i\n", tid);
+   pthread_exit(NULL);
+}
+
 
 const char* imagenet_labels[1000] = IMAGENET_LABELS;
 
@@ -48,7 +58,7 @@ unsigned long long read_cycles()
     return cycles;
 }
 
-std::vector<int> inferOnImage(const std::string &path, const std::string &preprocess, Ort::Session &session,
+std::vector<int> inferOnImage(const std::string &path, const std::string &preprocess, Ort::Session &session, Ort::Session &session2,
                   const std::vector<const char*> &input_node_names,
                   const std::vector<int64_t> &input_node_dims,
                   const std::vector<const char*> &output_node_names) {
@@ -114,7 +124,11 @@ std::vector<int> inferOnImage(const std::string &path, const std::string &prepro
   auto pre_inference_cycles = read_cycles();
 
   // score model & input tensor, get back output tensor
+  printf("First Inference\n");
   auto output_tensors = session.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
+  printf("Second Inference\n");
+  auto output_tensors2 = session2.Run(Ort::RunOptions{nullptr}, input_node_names.data(), &input_tensor, 1, output_node_names.data(), 1);
+  printf("Both Inferences Done\n");
   auto post_inference_cycles = read_cycles();
 
   assert(output_tensors.size() == 1 && output_tensors.front().IsTensor());
@@ -125,6 +139,15 @@ std::vector<int> inferOnImage(const std::string &path, const std::string &prepro
   printf("Element count %ld. Top 5 classes:\n", output_tensors.front().GetTensorTypeAndShapeInfo().GetElementCount());
   auto topK = getTopK(floatarr, output_tensors.front().GetTensorTypeAndShapeInfo().GetElementCount(), 5);
   std::vector<int> topFive; topFive.reserve(5);
+  while (!topK.empty()) {
+    std::pair<float, int> val = topK.top();
+    topFive.push_back(val.second);
+    assert(val.second < 1000 && "Returned label out of bounds");
+    printf("%f %s\n", val.first, imagenet_labels[val.second]);
+    topK.pop();
+  }
+  topK = getTopK(floatarr, output_tensors.front().GetTensorTypeAndShapeInfo().GetElementCount(), 5);
+  std::vector<int> topFive2; topFive2.reserve(5);
   while (!topK.empty()) {
     std::pair<float, int> val = topK.top();
     topFive.push_back(val.second);
@@ -208,9 +231,10 @@ int main(int argc, char* argv[]) {
 #endif
 
   const char* model_path = cmd["model"].as<std::string>().c_str();
-
+ 
   printf("Using Onnxruntime C++ API\n");
   Ort::Session session(env, model_path, session_options);
+  Ort::Session session2(env, model_path, session_options);
 
   //*************************************************************************
   // print model input layer (node names, types, shape etc.)
@@ -325,7 +349,7 @@ int main(int argc, char* argv[]) {
       totalCases += 1;
       // The most likely prediction is at the end of the list
       std::vector<int> topFiveOut = inferOnImage(path, cmd["preprocess"].as<std::string>(),
-                  session, input_node_names, input_node_dims, output_node_names);
+                  session, session2, input_node_names, input_node_dims, output_node_names);
       int expected_label = getLabelOfBatchImage(path);
       assert(expected_label < 1000 && "Expected label out of bounds");
       printf("Expected was %d - %s\n", expected_label, imagenet_labels[expected_label]);
@@ -349,10 +373,59 @@ int main(int argc, char* argv[]) {
     printf("Top five right: %d/%d\n", topFiveRight, totalCases);
     printf("Top one right: %d/%d\n", topOneRight, totalCases);
   } else {
+    
+    // pid_t pid;
+
+    // switch ( pid = fork() ) {
+    // case -1:
+    //   printf("Error in fork");
+
+    // case 0:
+    //   printf("Child process: My process id = %i\n", getpid());
+    //   printf("Child process: Value returned by fork() = %i \n", pid);
+    //   // cout << "Child process: Value returned by fork() = " << pid << endl;
+    //   printf("Inference 1\n");
+    //   inferOnImage(cmd["image"].as<std::string>(), cmd["preprocess"].as<std::string>(),
+    //               session, input_node_names, input_node_dims, output_node_names);
+
+    //   return 0;
+
+    
+    // default:
+    //   printf("Parent process. My process id =  %i\n", getpid());
+    //   //cout << "Parent process. My process id = " << getpid() << endl;
+    //   //cout << "Parent process. Value returned by fork() = " << pid << endl;
+    //   printf("Inference 2\n");
+    //   inferOnImage(cmd["avi"].as<std::string>(), cmd["preprocess"].as<std::string>(),
+    //               session, input_node_names, input_node_dims, output_node_names);
+
+    // if (wait(NULL) == -1) printf("Error in wait");
+    // }
+
+    //pthread_t threads[2];
+    //int rc;
+    //int i; 
+
+    //for( i = 0; i < 2; i++ ) {
+    //  printf("main() : creating thread, %i\n", i);
+    //  rc = pthread_create(&threads[i], NULL, PrintHello, (void *) i);
+    //  
+    //  if (rc) {
+    //     printf("Error:unable to create thread, %i \n", rc);
+    //     exit(-1);
+    //  }
+    //}
+
     inferOnImage(cmd["image"].as<std::string>(), cmd["preprocess"].as<std::string>(),
-                  session, input_node_names, input_node_dims, output_node_names);
+                   session, session2, input_node_names, input_node_dims, output_node_names);
+    
+
+
+    
   }
  
   return 0;
 }
+
+
 
